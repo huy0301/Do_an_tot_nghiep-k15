@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>ESP32-CAM Stream</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f0f0f0;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            text-align: center;
+        }
+        #stream {
+            width: 100%;
+            max-width: 640px;
+            border: 2px solid #333;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+        .controls {
+            margin: 20px 0;
+        }
+        button {
+            padding: 10px 20px;
+            margin: 0 10px;
+            font-size: 16px;
+            cursor: pointer;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        .status {
+            margin: 10px 0;
+            padding: 10px;
+            border-radius: 4px;
+        }
+        .connected {
+            background-color: #dff0d8;
+            color: #3c763d;
+        }
+        .disconnected {
+            background-color: #f2dede;
+            color: #a94442;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>ESP32-CAM Plant Disease Detection</h1>
+        <div id="status" class="status disconnected">Disconnected</div>
+        <img id="stream" src="" alt="ESP32-CAM Stream">
+        <div class="controls">
+            <button onclick="startStream()">Start Stream</button>
+            <button onclick="stopStream()">Stop Stream</button>
+        </div>
+    </div>
+
+    <script>
+        let ws = null;
+        const streamImg = document.getElementById('stream');
+        const statusDiv = document.getElementById('status');
+
+        function startStream() {
+            if (ws) {
+                ws.close();
+            }
+
+            // Get the current hostname and port
+            const host = window.location.hostname;
+            ws = new WebSocket(`ws://${host}:81/stream`);
+
+            ws.onopen = function() {
+                statusDiv.textContent = 'Connected';
+                statusDiv.className = 'status connected';
+            };
+
+            ws.onclose = function() {
+                statusDiv.textContent = 'Disconnected';
+                statusDiv.className = 'status disconnected';
+            };
+
+            ws.onmessage = function(event) {
+                // Create a blob from the received data
+                const blob = new Blob([event.data], { type: 'image/jpeg' });
+                // Create an object URL from the blob
+                const url = URL.createObjectURL(blob);
+                // Set the image source to the object URL
+                streamImg.src = url;
+                // Revoke the object URL after the image loads
+                streamImg.onload = function() {
+                    URL.revokeObjectURL(url);
+                };
+            };
+        }
+
+        function stopStream() {
+            if (ws) {
+                ws.close();
+                ws = null;
+            }
+            streamImg.src = '';
+            statusDiv.textContent = 'Disconnected';
+            statusDiv.className = 'status disconnected';
+        }
+    </script>
+</body>
+</html> 

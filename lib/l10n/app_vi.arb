@@ -1,0 +1,15 @@
+{
+  "healthSummaryTitle": "Tóm tắt sức khỏe",
+  "totalPlantsTracked": "Tổng số cây\nđang theo dõi",
+  "numberOfHealthyPlant": "Số lượng\ncây khỏe mạnh",
+  "numberOfRiskyPlant": "Số lượng\ncây có nguy cơ",
+  "numberOfDiseasedPlant": "Số lượng\ncây bị bệnh",
+  "welcomeMessage": "Chào mừng, {userName}!",
+  "noTasksAdded": "Chưa có nhiệm vụ nào được thêm!",
+  "addTap": "Thêm công việc",
+  "todayTask": "Nhiệm vụ hôm nay",
+  "plantHealthCheck": "Kiểm tra sức khỏe cây trồng",
+  "newRecommendation": "Đề xuất mới",
+  "waterReminder": "Nhắc nhở tưới nước",
+  "aiReminder": "Nhắc nhở AI"
+} 

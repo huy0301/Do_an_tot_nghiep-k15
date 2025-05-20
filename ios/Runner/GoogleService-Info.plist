@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CLIENT_ID</key>
+	<string>1017696428184-32ekhbvla83hophr91b9b2mf7tfgphtk.apps.googleusercontent.com</string>
+	<key>REVERSED_CLIENT_ID</key>
+	<string>com.googleusercontent.apps.1017696428184-32ekhbvla83hophr91b9b2mf7tfgphtk</string>
+	<key>ANDROID_CLIENT_ID</key>
+	<string>1017696428184-s01lmi0get5jjuaftr1or8dfs96311ie.apps.googleusercontent.com</string>
+	<key>API_KEY</key>
+	<string>AIzaSyAKVZKDFrLL9nG03uo9DMDa06GMw_tpUO8</string>
+	<key>GCM_SENDER_ID</key>
+	<string>1017696428184</string>
+	<key>PLIST_VERSION</key>
+	<string>1</string>
+	<key>BUNDLE_ID</key>
+	<string>com.example.agromind</string>
+	<key>PROJECT_ID</key>
+	<string>apple-disease-20b0b</string>
+	<key>STORAGE_BUCKET</key>
+	<string>apple-disease-20b0b.firebasestorage.app</string>
+	<key>IS_ADS_ENABLED</key>
+	<false></false>
+	<key>IS_ANALYTICS_ENABLED</key>
+	<false></false>
+	<key>IS_APPINVITE_ENABLED</key>
+	<true></true>
+	<key>IS_GCM_ENABLED</key>
+	<true></true>
+	<key>IS_SIGNIN_ENABLED</key>
+	<true></true>
+	<key>GOOGLE_APP_ID</key>
+	<string>1:1017696428184:ios:f55ab3bd82867c333ef0ed</string>
+	<key>DATABASE_URL</key>
+	<string>https://apple-disease-20b0b-default-rtdb.asia-southeast1.firebasedatabase.app</string>
+</dict>
+</plist>

@@ -1,0 +1,15 @@
+{
+  "healthSummaryTitle": "Health Summary",
+  "totalPlantsTracked": "Total plants\ntracked",
+  "numberOfHealthyPlant": "Number of\nHealthy Plant",
+  "numberOfRiskyPlant": "Number of\nRisky Plant",
+  "numberOfDiseasedPlant": "Number of\nDiseased Plant",
+  "welcomeMessage": "Welcome, {userName}!",
+  "noTasksAdded": "No tasks added yet!",
+  "addTap": "Add Task",
+  "todayTask": "Today's Tasks",
+  "plantHealthCheck": "Plant Health Check",
+  "newRecommendation": "New Recommendation",
+  "waterReminder": "Water Reminder",
+  "aiReminder": "AI Reminder"
+} 

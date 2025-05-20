@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test TFJS Model</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.10.0/dist/tf.min.js"></script>
+</head>
+<body>
+    <h1>Testing Model Load</h1>
+    <script>
+        async function loadMyModel() {
+            try {
+                console.log('Attempting to load model...');
+                const model = await tf.loadLayersModel('/modeljs/model.json'); // Đường dẫn tương đối với public
+                console.log('Model loaded successfully:', model);
+                alert('Model loaded successfully!');
+            } catch (error) {
+                console.error('Error loading model:', error);
+                console.error('Error name:', error.name);
+                console.error('Error message:', error.message);
+                console.error('Error stack:', error.stack);
+                alert('Error loading model. Check console.');
+            }
+        }
+        loadMyModel();
+    </script>
+</body>
+</html>
