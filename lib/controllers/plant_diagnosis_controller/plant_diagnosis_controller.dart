@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:agromind/model/prediction_history.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:get/get.dart';
 import 'package:image_picker/image_picker.dart';
@@ -37,6 +38,21 @@ class PlantDiagnosisController extends GetxController {
   void onInit() {
     super.onInit();
     loadModel();
+    // Listen to auth changes
+    _auth.authStateChanges().listen((User? user) {
+      if (user == null) {
+        // User logged out, clear diagnosis state
+        selectedImagePath.value = '';
+        diseaseName.value = '';
+        recommendation.value = '';
+        lastUploadedImageUrl.value = '';
+        confidence.value = 0.0;
+        isLoading.value = false; // Ensure loading is also reset
+        print("User logged out. PlantDiagnosisController state cleared.");
+      }
+      // Optionally, you could trigger an action if a user logs IN,
+      // but for this controller, clearing on logout is the primary concern.
+    });
   }
 
   Future<void> loadModel() async {
@@ -249,53 +265,55 @@ class PlantDiagnosisController extends GetxController {
       String platformValue;
       String targetCollection;
 
+      // Xác định platform và collection dựa trên nguồn gốc
       switch (source) {
         case DiagnosisSource.flutterMobile:
-          platformValue = 'flutter';
-          targetCollection = 'diagnosis';
+          platformValue = 'mobile_flutter';
+          targetCollection = 'diagnosis'; // ✅ Changed from 'plant_diagnosis' to 'diagnosis'
           break;
         case DiagnosisSource.esp32cam:
           platformValue = 'esp32cam';
-          targetCollection = 'esp32cam';
+          // Quyết định: ESP32-CAM cũng sẽ lưu vào collection 'diagnosis' nhưng có platform là 'esp32cam'
+          // Hoặc, nếu bạn muốn tách biệt hoàn toàn, có thể là 'esp32_diagnoses'
+          // Hiện tại, để đơn giản, gộp chung và phân biệt bằng 'platform'.
+          targetCollection = 'diagnosis'; // ✅ Changed from 'esp32cam_diagnoses' (example) to 'diagnosis'
           break;
-        default: // Mặc định là flutter nếu source không xác định (dù không nên xảy ra)
-          platformValue = 'flutter';
-          targetCollection = 'diagnosis';
+        default:
+          platformValue = 'unknown';
+          targetCollection = 'diagnosis'; // Mặc định
       }
+
+      // Sử dụng PredictionHistory model để tạo dữ liệu
+      // Chúng ta sẽ cần đảm bảo model PredictionHistory có đủ các trường cần thiết.
+      // Đặc biệt là `storagePath` và `recommendation`.
+      final diagnosisData = PredictionHistory(
+        id: '', // Firestore sẽ tự sinh ID
+        userId: user.uid,
+        // plantName: "Unknown Plant", // Nếu không có thông tin tên cây, hoặc lấy từ đâu đó
+        // Giả sử tên cây là phần trước "___" trong diseaseName
+        diseaseName: diseaseName.value, // Tên bệnh đầy đủ từ model
+        imageUrl: imageUrl,
+        confidence: currentConfidence,
+        timestamp: DateTime.now(),
+        platform: platformValue,
+        recommendation: recommendation.value, // Lấy từ Gemini
+        storagePath: storagePathValue, // Đường dẫn lưu trữ trên Firebase Storage
+        // originalFileName: File(selectedImagePath.value).path.split('/').last // Not in shared model based on web
+      );
       
-      // Tạo ID mới cho document
-      String newPredictionId = _firestore
-          .collection("users")
-          .doc(user.uid)
-          .collection(targetCollection) // Sử dụng targetCollection
-          .doc()
-          .id;
-
-      Map<String, dynamic> predictionData = {
-        'userId': user.uid,
-        'diseaseName': diseaseName.value,
-        'imageUrl': imageUrl,
-        'storagePath': storagePathValue, // Thêm storagePath
-        'confidence': currentConfidence,
-        'timestamp': FieldValue.serverTimestamp(),
-        'platform': platformValue, // platform đã xác định
-        'recommendation': recommendation.value
-      };
-
+      // Lưu vào collection đã xác định (ví dụ: 'diagnosis' hoặc 'esp32cam_diagnoses')
+      // Đường dẫn: users/{userId}/{targetCollection}/{documentId}
       await _firestore
-          .collection("users")
+          .collection('users')
           .doc(user.uid)
-          .collection(targetCollection) 
-          .doc(newPredictionId)
-          .set(predictionData);
+          .collection(targetCollection) // Sử dụng targetCollection ở đây
+          .add(diagnosisData.toMap());
 
-      print("✅ ($platformValue) Diagnosis saved to $targetCollection for user: ${user.uid} with ID: $newPredictionId.");
-      
-      await _historyController.getPredictionHistory();
-
+      Get.snackbar("Success", "Diagnosis saved successfully!");
+      _historyController.getPredictionHistory(); // Refresh history list
     } catch (e) {
-      print("❌ Failed to save diagnosis: $e");
-      Get.snackbar("Error", "Failed to save prediction: ${e.toString()}");
+      print("❌ Firestore Save Error: $e");
+      Get.snackbar("Error", "Failed to save diagnosis: ${e.toString()}");
     }
   }
 }

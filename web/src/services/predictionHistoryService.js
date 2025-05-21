@@ -51,18 +51,23 @@ export const getPredictionHistory = async () => {
     const user = auth.currentUser;
     if (!user) throw new Error('User not authenticated');
 
+    // Updated to query the user-specific 'diagnosis' subcollection
+    const diagnosisHistoryRef = collection(db, 'users', user.uid, 'diagnosis');
     const q = query(
-      collection(db, 'prediction_history'),
-      where('userId', '==', user.uid),
+      diagnosisHistoryRef,
       orderBy('timestamp', 'desc')
     );
 
     const querySnapshot = await getDocs(q);
-    return querySnapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data(),
-      timestamp: doc.data().timestamp.toDate()
-    }));
+    return querySnapshot.docs.map(doc => {
+      const data = doc.data();
+      return {
+        id: doc.id,
+        ...data,
+        // Ensure timestamp is converted to JS Date object if it's a Firestore Timestamp
+        timestamp: data.timestamp && data.timestamp.toDate ? data.timestamp.toDate() : data.timestamp,
+      };
+    });
   } catch (error) {
     console.error('Error getting prediction history:', error);
     throw error;
@@ -71,7 +76,11 @@ export const getPredictionHistory = async () => {
 
 export const deletePrediction = async (predictionId) => {
   try {
-    await deleteDoc(doc(db, 'prediction_history', predictionId));
+    const user = auth.currentUser;
+    if (!user) throw new Error('User not authenticated for deletion');
+
+    // Updated to delete from the user-specific 'diagnosis' subcollection
+    await deleteDoc(doc(db, 'users', user.uid, 'diagnosis', predictionId));
     return { success: true };
   } catch (error) {
     console.error('Error deleting prediction:', error);

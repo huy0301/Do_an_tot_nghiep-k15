@@ -12,7 +12,7 @@ class HomeController extends GetxController {
   var weatherCondition = ''.obs;
   var isDrawerOpen = false.obs;
   var userName = "".obs; // ✅ Fetch from Firebase
-  var location = "India".obs;
+  var location = "VietNam".obs;
   var tasks = <Task>[].obs;
 
   final WeatherService weatherService = WeatherService();

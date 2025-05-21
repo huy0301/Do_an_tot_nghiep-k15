@@ -39,30 +39,55 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
   // 📌 Fetch Logged-in User Details from Firestore
   // 📌 Fetch Logged-in User Details from Firestore Safely
   Future<Map<String, dynamic>?> getUserDetails() async {
-    try {
-      User? user = FirebaseAuth.instance.currentUser;
-      if (user == null) return null;
+    User? user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      print("getUserDetails: User is null. Not logged in?");
+      // Return default for non-logged in user or if user becomes null during async gap
+      return {
+        "username": "Anonymous User",
+        "userProfilePic": "",
+      };
+    }
+    print("getUserDetails: User ID: ${user.uid}");
 
+    try {
       DocumentSnapshot userDoc =
       await FirebaseFirestore.instance.collection("users").doc(user.uid).get();
 
       if (userDoc.exists && userDoc.data() != null) {
-        // ✅ Safe access using Map and provide default values
+        print("getUserDetails: User document data found: ${userDoc.data()}");
         Map<String, dynamic> userData = userDoc.data() as Map<String, dynamic>;
-
         String firstName = userData.containsKey("firstName") ? userData["firstName"] : "";
         String lastName = userData.containsKey("lastName") ? userData["lastName"] : "";
-        String fullName = "$firstName $lastName".trim(); // 🔥 Combine First and Last Name
+        String fullName = "$firstName $lastName".trim();
 
         return {
-          "username": fullName.isNotEmpty ? fullName : "Unknown User", // ✅ Use Full Name
+          "username": fullName.isNotEmpty ? fullName : "User (No Name)", // More specific default
           "userProfilePic": userData.containsKey("profilePic") ? userData["profilePic"] : "",
+        };
+      } else {
+        print("getUserDetails: User document does not exist or data is null for ID: ${user.uid}. Returning default details.");
+        // Return default if document doesn't exist or has no data
+        return {
+          "username": "User (No Data)",
+          "userProfilePic": "",
         };
       }
     } catch (e) {
-      print("⚠️ Error fetching user details: $e");
+      print("⚠️ Error fetching user details: $e. Returning default details.");
+      // Return default on any other error
+      return {
+        "username": "User (Error)",
+        "userProfilePic": "",
+      };
     }
-    return null;
+    // This line should ideally not be reached if logic is correct, 
+    // but as a failsafe, return default.
+    // print("getUserDetails: Reached end of function unexpectedly. Returning default details.");
+    // return {
+    //   "username": "User (Failsafe)",
+    //   "userProfilePic": "",
+    // };
   }
 
 
@@ -131,52 +156,54 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
       appBar: AppBar(title: Text("Create Post"), backgroundColor: Colors.green[200]),
       body: Padding(
         padding: EdgeInsets.all(16),
-        child: Column(
-          children: [
-            // 📌 Image Preview
-            GestureDetector(
-              onTap: pickImage,
-              child: Container(
-                height: 200,
-                width: double.infinity,
-                decoration: BoxDecoration(
-                  color: Colors.grey[200],
-                  borderRadius: BorderRadius.circular(12),
+        child: SingleChildScrollView(
+          child: Column(
+            children: [
+              // 📌 Image Preview
+              GestureDetector(
+                onTap: pickImage,
+                child: Container(
+                  height: 200,
+                  width: double.infinity,
+                  decoration: BoxDecoration(
+                    color: Colors.grey[200],
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: selectedImage != null
+                      ? Image.file(selectedImage!, fit: BoxFit.cover)
+                      : Icon(Icons.add_a_photo, size: 50, color: Colors.grey),
                 ),
-                child: selectedImage != null
-                    ? Image.file(selectedImage!, fit: BoxFit.cover)
-                    : Icon(Icons.add_a_photo, size: 50, color: Colors.grey),
               ),
-            ),
 
-            SizedBox(height: 16),
+              SizedBox(height: 16),
 
-            // 📌 Title Input
-            TextField(
-              controller: titleController,
-              decoration: InputDecoration(labelText: "Post Title"),
-            ),
+              // 📌 Title Input
+              TextField(
+                controller: titleController,
+                decoration: InputDecoration(labelText: "Post Title"),
+              ),
 
-            SizedBox(height: 16),
+              SizedBox(height: 16),
 
-            // 📌 Description Input
-            TextField(
-              controller: descriptionController,
-              decoration: InputDecoration(labelText: "Description"),
-              maxLines: 3,
-            ),
+              // 📌 Description Input
+              TextField(
+                controller: descriptionController,
+                decoration: InputDecoration(labelText: "Description"),
+                maxLines: 3,
+              ),
 
-            SizedBox(height: 20),
+              SizedBox(height: 20),
 
-            // 📌 Upload Button
-            ElevatedButton(
-              onPressed: isUploading ? null : uploadPost,
-              style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
-              child: isUploading
-                  ? CircularProgressIndicator(color: Colors.white)
-                  : Text("Upload Post"),
-            ),
-          ],
+              // 📌 Upload Button
+              ElevatedButton(
+                onPressed: isUploading ? null : uploadPost,
+                style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
+                child: isUploading
+                    ? CircularProgressIndicator(color: Colors.white)
+                    : Text("Upload Post"),
+              ),
+            ],
+          ),
         ),
       ),
     );

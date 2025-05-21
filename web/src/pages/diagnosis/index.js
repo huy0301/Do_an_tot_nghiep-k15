@@ -5,7 +5,7 @@ import MainLayout from '../../components/Layout/MainLayout';
 import ImageUploader from '../../components/ImageUpload/ImageUploader';
 import { storage, db, auth } from '../../services/firebase';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { collection, addDoc } from 'firebase/firestore';
+import { collection, addDoc, Timestamp } from 'firebase/firestore';
 import { mlService } from '../../services/ml';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { useRouter } from 'next/router';
@@ -71,15 +71,21 @@ export default function Diagnosis() {
         await uploadBytes(storageRefVal, file);
         const imageUrl = await getDownloadURL(storageRefVal);
 
-        await addDoc(collection(db, 'diagnosis'), {
+        // Prepare data according to the shared PredictionHistory model
+        const diagnosisData = {
           userId: user.uid,
-          imageUrl,
-          originalFileName: file.name,
-          result: prediction, 
-          timestamp: new Date(),
+          imageUrl: imageUrl,
+          storagePath: storageRefPath,
+          diseaseName: prediction.disease, // from mlService result
+          confidence: prediction.confidence, // from mlService result
+          timestamp: Timestamp.now(), // Firestore server timestamp
           platform: 'web',
-          storagePath: storageRefPath
-        });
+          recommendation: prediction.treatment || '', // Using treatment as recommendation
+          // originalFileName: file.name, // Not in shared model, omitting
+        };
+
+        // Save to the correct user-specific sub-collection
+        await addDoc(collection(db, 'users', user.uid, 'diagnosis'), diagnosisData);
 
         newResults.push({ 
           fileName: file.name, 

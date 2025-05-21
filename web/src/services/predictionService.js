@@ -74,7 +74,7 @@ export const predictDisease = async (imageBlob) => {
     if (!user) {
       throw new Error('User not authenticated');
     }
-
+    console.log('User ID:', user.uid);
     // Convert blob to base64 for prediction
     const reader = new FileReader();
     const base64Promise = new Promise((resolve) => {
@@ -134,6 +134,7 @@ export const predictDisease = async (imageBlob) => {
     // users/{userId}/diagnosis/{newDiagnosisId}
     const diagnosisCollectionRef = collection(db, 'users', user.uid, 'diagnosis');
     const docRef = await addDoc(diagnosisCollectionRef, diagnosisData);
+    console.log('Collection path:', diagnosisCollectionRef.path);
 
     // Update statistics (This function might need review if it depends on the old 'predictions' collection structure)
     // For now, assuming it primarily works with userId and disease details.
@@ -159,19 +160,28 @@ export const getPredictionHistory = async () => {
       throw new Error('User not authenticated');
     }
 
+    // Query the 'diagnosis' subcollection under the specific user's document
+    const diagnosisHistoryRef = collection(db, 'users', user.uid, 'diagnosis');
+    
     const q = query(
-      collection(db, 'predictions'),
-      where('userId', '==', user.uid),
+      diagnosisHistoryRef,
       orderBy('timestamp', 'desc')
+      // If you want to filter only for web predictions, you could add:
+      // where('platform', '==', 'web')
+      // For now, it fetches all documents in the user's 'diagnosis' subcollection.
     );
     
     const querySnapshot = await getDocs(q);
     
-    return querySnapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data(),
-      timestamp: doc.data().timestamp.toDate(),
-    }));
+    return querySnapshot.docs.map(doc => {
+      const data = doc.data();
+      return {
+        id: doc.id,
+        ...data,
+        // Ensure timestamp is converted to JS Date object if it's a Firestore Timestamp
+        timestamp: data.timestamp && data.timestamp.toDate ? data.timestamp.toDate() : data.timestamp,
+      };
+    });
   } catch (error) {
     console.error('Error fetching prediction history:', error);
     throw error;

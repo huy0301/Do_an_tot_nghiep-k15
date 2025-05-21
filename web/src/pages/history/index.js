@@ -78,38 +78,66 @@ export default function History() {
     const fetchHistory = async () => {
       setLoading(true);
       try {
-        const diagnosisQuery = query(
-          collection(db, 'diagnosis'),
-          where('userId', '==', user.uid),
+        // Query 1: Read from the user-specific 'diagnosis' subcollection
+        const userDiagnosisQuery = query(
+          collection(db, 'users', user.uid, 'diagnosis'), // Path updated
           orderBy('timestamp', 'desc')
         );
-        const esp32Query = query(
-          collection(db, 'esp32_predictions'),
-          where('userId', '==', user.uid),
+        // Query 2: Read from the user-specific 'esp32cam' subcollection
+        const userEsp32Query = query(
+          collection(db, 'users', user.uid, 'esp32cam'), // Path updated
           orderBy('timestamp', 'desc')
         );
 
-        const [diagnosisSnapshot, esp32Snapshot] = await Promise.all([
-          getDocs(diagnosisQuery),
-          getDocs(esp32Query)
+        const [userDiagnosisSnapshot, userEsp32Snapshot] = await Promise.all([
+          getDocs(userDiagnosisQuery),
+          getDocs(userEsp32Query)
         ]);
 
-        const diagnosisData = diagnosisSnapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data(),
-          timestamp: doc.data().timestamp && doc.data().timestamp.toDate ? doc.data().timestamp.toDate() : (doc.data().timestamp ? parseISO(doc.data().timestamp) : new Date()),
-          source: doc.data().source || 'Tải lên thủ công'
-        }));
+        const transformData = (doc) => {
+          const data = doc.data();
+          const result = data.result || {}; // Use existing result if present (for older data)
 
-        const esp32Data = esp32Snapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data(),
-          timestamp: doc.data().timestamp && doc.data().timestamp.toDate ? doc.data().timestamp.toDate() : (doc.data().timestamp ? parseISO(doc.data().timestamp) : new Date()),
-          source: doc.data().source || 'ESP32-CAM'
-        }));
+          // Map flat fields to the nested 'result' structure if not already there
+          // and provide defaults.
+          const diseaseName = result.disease || data.diseaseName || 'N/A';
+          const confidence = typeof result.confidence === 'number' ? result.confidence : (typeof data.confidence === 'number' ? data.confidence : 0);
+          // 'recommendation' from our flat structure maps to 'treatment' in the component's expectation for 'result'
+          const treatment = result.treatment || data.recommendation || 'N/A';
+          // 'prevention' might not exist in newer flat data, handled by OR 'N/A'
+          const prevention = result.prevention || 'N/A';
+          
+          let source = 'Không rõ';
+          if (data.platform === 'web') {
+            source = 'Web';
+          } else if (data.platform === 'flutter') {
+            source = 'Mobile App';
+          } else if (data.platform === 'esp32cam') {
+            source = 'ESP32-CAM';
+          } else if (data.source) { // Fallback for older data that might have 'source'
+            source = data.source;
+          }
+
+
+          return {
+            id: doc.id,
+            ...data, // Spread the original data
+            result: { // Ensure the result object expected by the component
+                disease: diseaseName,
+                confidence: confidence,
+                treatment: treatment,
+                prevention: prevention,
+            },
+            timestamp: data.timestamp && data.timestamp.toDate ? data.timestamp.toDate() : (data.timestamp ? parseISO(data.timestamp) : new Date()),
+            source: source // Use the determined source
+          };
+        };
+
+        const diagnosisData = userDiagnosisSnapshot.docs.map(transformData);
+        const esp32Data = userEsp32Snapshot.docs.map(transformData);
 
         const combinedData = [...diagnosisData, ...esp32Data];
-        combinedData.sort((a, b) => b.timestamp - a.timestamp);
+        combinedData.sort((a, b) => (b.timestamp && a.timestamp ? b.timestamp - a.timestamp : 0));
 
         setDiagnosisHistory(combinedData);
       } catch (error) {

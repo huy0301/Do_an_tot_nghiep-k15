@@ -23,7 +23,7 @@ class ChatController extends GetxController {
     messages.insert(0, {
       "sender": "bot",
       "text":
-      "🌿 Welcome to **AgroMind**! I am your **Plant Health Advisor**. 🌱\n\nYou can ask me about:\n✅ Plant Care (Watering, Sunlight, Fertilizer)\n✅ Disease Diagnosis\n✅ Growth & Maintenance Advice"
+      "🌿 Chào mừng bạn đến với **AgroMind**! Tôi là **Cố vấn Sức khỏe Cây trồng** của bạn. 🌱\n\nBạn có thể hỏi tôi về:\n✅ Cách chăm sóc cây (Tưới nước, Ánh sáng, Phân bón)\n✅ Chẩn đoán bệnh cho cây\n✅ Lời khuyên về trồng và duy trì cây cảnh"
     });
   }
 
@@ -41,16 +41,19 @@ class ChatController extends GetxController {
       if (!_isPlantRelated(userMessage)) {
         messages.insert(0, {
           "sender": "bot",
-          "text": "🚫 I can only help with **plant care, plant health, and gardening advice**. 🌱 Try asking about watering, sunlight, or plant diseases."
+          "text": "🚫 Tôi chỉ có thể giúp bạn với các vấn đề liên quan đến **chăm sóc cây, sức khỏe cây trồng và làm vườn**. 🌱 Hãy thử hỏi về tưới nước, ánh sáng mặt trời hoặc bệnh của cây nhé."
         });
       } else {
-        // ✅ Send query to Gemini AI
-        final response = await model.generateContent([Content.text(userMessage)]);
-        String botResponse = response.text ?? "I'm not sure, please try again!";
+        // Thêm yêu cầu trả lời bằng tiếng Việt vào prompt
+        String prompt = "$userMessage\n\n(Hãy trả lời bằng tiếng Việt một cách chi tiết và thân thiện.)";
+        
+        final response = await model.generateContent([Content.text(prompt)]);
+        String botResponse = response.text ?? "Xin lỗi, tôi chưa hiểu ý bạn. Bạn có thể thử lại không?";
         messages.insert(0, {"sender": "bot", "text": botResponse});
       }
     } catch (e) {
-      messages.insert(0, {"sender": "bot", "text": "⚠️ Error: Unable to process your request at the moment."});
+      print("Gemini API Error: $e");
+      messages.insert(0, {"sender": "bot", "text": "⚠️ Đã có lỗi xảy ra: Không thể xử lý yêu cầu của bạn vào lúc này. Vui lòng thử lại sau."});
     }
 
     isTyping.value = false;
@@ -58,13 +61,22 @@ class ChatController extends GetxController {
 
   // ✅ Validate if Query is Plant-Related
   bool _isPlantRelated(String query) {
+    String lowerQuery = query.toLowerCase();
     List<String> plantKeywords = [
+      // Tiếng Anh
       "plant", "watering", "fertilizer", "soil", "disease", "sunlight", "leaves", "growth",
-      "flowers", "gardening", "seeds", "roots", "photosynthesis", "botany"
+      "flowers", "gardening", "seeds", "roots", "photosynthesis", "botany", "pest", "insect",
+      "pruning", "repotting", "hydroponics", "organic", "compost", "mulch", "harvest", "crop",
+      "tree", "shrub", "herb", "vegetable", "fruit",
+      // Tiếng Việt (thêm các từ khóa phổ biến)
+      "cây", "tưới", "nước", "phân bón", "đất trồng", "bệnh", "sâu", "nấm", "ánh sáng", "mặt trời", "lá",
+      "tăng trưởng", "ra hoa", "làm vườn", "hạt giống", "rễ", "quang hợp", "thực vật học", "sâu bệnh",
+      "côn trùng", "cắt tỉa", "thay chậu", "thủy canh", "hữu cơ", "phân compost", "lớp phủ", "thu hoạch",
+      "cây trồng", "cây cảnh", "rau", "củ", "quả", "hoa"
     ];
 
     for (String keyword in plantKeywords) {
-      if (query.toLowerCase().contains(keyword)) {
+      if (lowerQuery.contains(keyword)) {
         return true;
       }
     }
