@@ -61,17 +61,22 @@ export default function ESP32StreamPage() {
       await uploadBytes(storageRef, imageBlob); // Tải lên Blob trực tiếp
       const imageUrl = await getDownloadURL(storageRef);
 
-      // 3. Save to Firestore (ví dụ collection: 'esp32_predictions')
-      await addDoc(collection(db, 'esp32_predictions'), {
+      // 3. Save to Firestore in the user-specific collection with consistent structure
+      const diagnosisRecord = {
         userId: user.uid,
         imageUrl,
         storagePath,
-        prediction,
-        timestamp: new Date(timestamp),
-        source: 'ESP32-CAM'
-      });
+        diseaseName: prediction.disease,
+        confidence: prediction.confidence,
+        treatment: prediction.treatment || '',
+        prevention: prediction.prevention || '',
+        timestamp: new Date(timestamp), // Or use Timestamp.fromDate(new Date(timestamp)) for Firestore Timestamp
+        platform: 'esp32cam' // Consistent with history page logic
+      };
 
-      setPredictionResult(prediction);
+      await addDoc(collection(db, 'users', user.uid, 'esp32cam'), diagnosisRecord);
+
+      setPredictionResult(prediction); // predictionResult on UI can still use the full prediction object
     } catch (error) {
       console.error('Error during ESP32 CAM diagnosis:', error);
       setPredictionError(`Lỗi chẩn đoán: ${error.message || 'Vui lòng thử lại.'}`);

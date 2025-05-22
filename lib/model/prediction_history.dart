@@ -4,49 +4,62 @@ class PredictionHistory {
   final String id;
   final String userId;
   final String diseaseName;
-  final String imageUrl;
-  final String storagePath;
   final double confidence;
+  final String imageUrl;
   final DateTime timestamp;
-  final String platform; // 'web' or 'mobile'
-  final String recommendation;
+  final String? platform; // 'web', 'flutter_tflite', 'esp32cam'
+  final String? storagePath; // Đường dẫn trong Firebase Storage
+  final String? treatment;    // Khuyến nghị điều trị
+  final String? prevention;   // Biện pháp phòng ngừa
 
   PredictionHistory({
     required this.id,
     required this.userId,
     required this.diseaseName,
-    required this.imageUrl,
-    required this.storagePath,
     required this.confidence,
+    required this.imageUrl,
     required this.timestamp,
-    required this.platform,
-    required this.recommendation,
+    this.platform,
+    this.storagePath,
+    this.treatment,
+    this.prevention,
   });
 
   Map<String, dynamic> toMap() {
     return {
       'userId': userId,
       'diseaseName': diseaseName,
-      'imageUrl': imageUrl,
-      'storagePath': storagePath,
       'confidence': confidence,
-      'timestamp': timestamp,
+      'imageUrl': imageUrl,
+      'timestamp': Timestamp.fromDate(timestamp),
       'platform': platform,
-      'recommendation': recommendation,
+      'storagePath': storagePath,
+      'treatment': treatment,
+      'prevention': prevention,
     };
   }
 
-  factory PredictionHistory.fromMap(String id, Map<String, dynamic> map) {
+  factory PredictionHistory.fromMap(String id, Map<String, dynamic> data) {
+    DateTime parsedTimestamp;
+    if (data['timestamp'] is Timestamp) {
+      parsedTimestamp = (data['timestamp'] as Timestamp).toDate();
+    } else if (data['timestamp'] is String) {
+      parsedTimestamp = DateTime.tryParse(data['timestamp'] as String) ?? DateTime.now();
+    } else {
+      parsedTimestamp = DateTime.now();
+    }
+
     return PredictionHistory(
       id: id,
-      userId: map['userId'] ?? '',
-      diseaseName: map['diseaseName'] ?? map['prediction'] ?? '',
-      imageUrl: map['imageUrl'] ?? '',
-      storagePath: map['storagePath'] ?? '',
-      confidence: (map['confidence'] ?? 0.0).toDouble(),
-      timestamp: (map['timestamp'] is Timestamp ? (map['timestamp'] as Timestamp).toDate() : DateTime.now()),
-      platform: map['platform'] ?? '',
-      recommendation: map['recommendation'] ?? '',
+      userId: data['userId'] as String? ?? '',
+      diseaseName: data['diseaseName'] as String? ?? 'N/A',
+      confidence: (data['confidence'] as num?)?.toDouble() ?? 0.0,
+      imageUrl: data['imageUrl'] as String? ?? '',
+      timestamp: parsedTimestamp,
+      platform: data['platform'] as String?,
+      storagePath: data['storagePath'] as String?,
+      treatment: data['treatment'] as String?,
+      prevention: data['prevention'] as String?,
     );
   }
 } 

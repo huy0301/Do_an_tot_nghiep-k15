@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { Box, Typography, Grid, Paper } from '@mui/material';
 import MainLayout from '../../components/Layout/MainLayout';
-import { db } from '../../services/firebase';
+import { db, auth } from '../../services/firebase';
 import { collection, query, orderBy, getDocs } from 'firebase/firestore';
+import { useAuthState } from 'react-firebase-hooks/auth';
+import { parseISO } from 'date-fns';
 import {
   LineChart,
   Line,
@@ -18,40 +20,106 @@ import {
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042'];
 
+// Hàm chuẩn hóa dữ liệu dashboard
+const transformDashboardData = (doc) => {
+  const data = doc.data();
+  const result = data.result || {};
+
+  const diseaseName = result.disease || data.diseaseName || 'N/A';
+  let confidenceValue = 0;
+  if (result && typeof result.confidence === 'number') {
+    confidenceValue = result.confidence;
+  } else if (typeof data.confidence === 'number') {
+    confidenceValue = data.confidence;
+  }
+  
+  let jsTimestamp = new Date(); 
+  if (data.timestamp && typeof data.timestamp.toDate === 'function') {
+    jsTimestamp = data.timestamp.toDate();
+  } else if (data.timestamp && typeof data.timestamp === 'string') {
+    try {
+      const parsed = parseISO(data.timestamp);
+      if (!isNaN(parsed.getTime())) {
+          jsTimestamp = parsed;
+      }
+    } catch (e) { /* jsTimestamp defaults to new Date() */ }
+  } else if (data.timestamp instanceof Date) {
+    jsTimestamp = data.timestamp;
+  }
+
+  return {
+    id: doc.id,
+    ...data, 
+    result: { 
+        disease: diseaseName,
+        confidence: confidenceValue,
+        treatment: (result && result.treatment) || data.treatment || data.recommendation || 'N/A',
+        prevention: (result && result.prevention) || data.prevention || 'N/A',
+    },
+    timestamp: jsTimestamp, 
+  };
+};
+
 export default function Dashboard() {
+  const [user] = useAuthState(auth);
   const [diagnosisData, setDiagnosisData] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchData = async () => {
+      if (!user) {
+        setLoading(false);
+        setDiagnosisData([]);
+        return;
+      }
+      setLoading(true);
       try {
-        const q = query(collection(db, 'diagnosis'), orderBy('timestamp', 'desc'));
-        const querySnapshot = await getDocs(q);
-        const data = querySnapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data(),
-          timestamp: doc.data().timestamp.toDate(),
-        }));
-        setDiagnosisData(data);
+        const diagnosisQuery = query(collection(db, 'users', user.uid, 'diagnosis'), orderBy('timestamp', 'desc'));
+        const esp32camQuery = query(collection(db, 'users', user.uid, 'esp32cam'), orderBy('timestamp', 'desc'));
+
+        const [diagnosisSnapshot, esp32camSnapshot] = await Promise.all([
+          getDocs(diagnosisQuery),
+          getDocs(esp32camQuery)
+        ]);
+
+        const webData = diagnosisSnapshot.docs.map(transformDashboardData);
+        const esp32Data = esp32camSnapshot.docs.map(transformDashboardData);
+
+        const combinedData = [...webData, ...esp32Data];
+        combinedData.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
+        
+        setDiagnosisData(combinedData);
       } catch (error) {
-        console.error('Error fetching data:', error);
+        console.error('Error fetching dashboard data:', error);
+        setDiagnosisData([]);
       } finally {
         setLoading(false);
       }
     };
 
     fetchData();
-  }, []);
+  }, [user]);
 
   // Process data for charts
-  const accuracyData = diagnosisData.map(item => ({
-    date: item.timestamp.toLocaleDateString(),
-    accuracy: item.result.confidence * 100,
-  }));
+  const accuracyData = diagnosisData.map(item => {
+    const confidence = (item.result && typeof item.result.confidence === 'number')
+      ? item.result.confidence
+      : (typeof item.confidence === 'number' ? item.confidence : 0);
+    const dateStr = item.timestamp && typeof item.timestamp.toLocaleDateString === 'function'
+      ? item.timestamp.toLocaleDateString('vi-VN')
+      : 'N/A';
+    return {
+      date: dateStr,
+      accuracy: confidence * 100,
+    };
+  });
 
   const diseaseDistribution = diagnosisData.reduce((acc, item) => {
-    const disease = item.result.disease;
-    acc[disease] = (acc[disease] || 0) + 1;
+    const disease = (item.result && typeof item.result.disease === 'string' && item.result.disease) ||
+                    (typeof item.diseaseName === 'string' && item.diseaseName);
+    if (disease) {
+      acc[disease] = (acc[disease] || 0) + 1;
+    }
     return acc;
   }, {});
 
@@ -79,8 +147,12 @@ export default function Dashboard() {
             <Paper sx={{ p: 3 }}>
               <Typography variant="h6">Độ chính xác trung bình</Typography>
               <Typography variant="h3">
-                {(diagnosisData.reduce((acc, item) => acc + item.result.confidence, 0) / 
-                  (diagnosisData.length || 1) * 100).toFixed(2)}%
+                {(diagnosisData.reduce((acc, item) => {
+                  const confidence = (item.result && typeof item.result.confidence === 'number')
+                    ? item.result.confidence
+                    : (typeof item.confidence === 'number' ? item.confidence : 0);
+                  return acc + confidence;
+                }, 0) / (diagnosisData.length || 1) * 100).toFixed(2)}%
               </Typography>
             </Paper>
           </Grid>

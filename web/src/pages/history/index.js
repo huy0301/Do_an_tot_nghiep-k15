@@ -102,10 +102,10 @@ export default function History() {
           // and provide defaults.
           const diseaseName = result.disease || data.diseaseName || 'N/A';
           const confidence = typeof result.confidence === 'number' ? result.confidence : (typeof data.confidence === 'number' ? data.confidence : 0);
-          // 'recommendation' from our flat structure maps to 'treatment' in the component's expectation for 'result'
-          const treatment = result.treatment || data.recommendation || 'N/A';
-          // 'prevention' might not exist in newer flat data, handled by OR 'N/A'
-          const prevention = result.prevention || 'N/A';
+          
+          // Sửa logic để ưu tiên data.treatment và data.prevention
+          const treatment = (result && result.treatment) || data.treatment || data.recommendation || 'N/A';
+          const prevention = (result && result.prevention) || data.prevention || 'N/A';
           
           let source = 'Không rõ';
           if (data.platform === 'web') {
@@ -232,13 +232,22 @@ export default function History() {
     const tableColumn = ["Ngày giờ", "Nguồn", "Bệnh", "Độ chính xác (%)", "Điều trị", "Phòng ngừa"];
     const tableRows = [];
     filteredHistory.forEach(item => {
+      // Ưu tiên sử dụng các trường đã được chuẩn hóa trong item.result bởi transformData
+      // nhưng vẫn có thể kiểm tra trực tiếp các trường gốc nếu cần như một phương án dự phòng an toàn hơn.
+      const disease = (item.result && item.result.disease) || item.diseaseName || 'N/A';
+      const confidence = (item.result && typeof item.result.confidence === 'number') 
+                         ? (item.result.confidence * 100).toFixed(2) 
+                         : (typeof item.confidence === 'number' ? (item.confidence * 100).toFixed(2) : 'N/A');
+      const treatment = (item.result && item.result.treatment) || item.treatment || item.recommendation || 'N/A';
+      const prevention = (item.result && item.result.prevention) || item.prevention || 'N/A';
+
        tableRows.push([
         item.timestamp ? item.timestamp.toLocaleString('vi-VN') : 'N/A',
         item.source || 'Không rõ',
-        item.result && item.result.disease ? item.result.disease : 'N/A',
-        item.result && typeof item.result.confidence === 'number' ? (item.result.confidence * 100).toFixed(2) : 'N/A',
-        (item.result && item.result.treatment) || 'N/A',
-        (item.result && item.result.prevention) || 'N/A',
+        disease,
+        confidence,
+        treatment,
+        prevention,
       ]);
     });
     autoTable(doc, { 

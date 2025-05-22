@@ -17,32 +17,50 @@ export default function DiagnosisDetail() {
 
   useEffect(() => {
     const fetchDiagnosis = async () => {
-      if (!id || !user) return;
+      if (!id || !user) {
+        setLoading(false);
+        return;
+      }
+      setLoading(true);
+      setError(null);
+      setDiagnosis(null);
 
       try {
-        const docRef = doc(db, 'diagnosis', id);
-        const docSnap = await getDoc(docRef);
+        let docSnap = null;
+        // Thử lấy từ 'users/{user.uid}/diagnosis/{id}' trước
+        const diagnosisPath1 = doc(db, 'users', user.uid, 'diagnosis', id);
+        docSnap = await getDoc(diagnosisPath1);
+
+        if (!docSnap.exists()) {
+          // Nếu không tìm thấy, thử lấy từ 'users/{user.uid}/esp32cam/{id}'
+          const diagnosisPath2 = doc(db, 'users', user.uid, 'esp32cam', id);
+          docSnap = await getDoc(diagnosisPath2);
+        }
 
         if (docSnap.exists()) {
           const data = docSnap.data();
-          // Kiểm tra quyền truy cập
+          // Kiểm tra lại userId (dù đã query trong path của user, đây là double check)
           if (data.userId !== user.uid) {
-            setError('Bạn không có quyền xem kết quả này');
-            return;
+            setError('Bạn không có quyền xem kết quả này.');
+          } else {
+            setDiagnosis({ id: docSnap.id, ...data });
           }
-          setDiagnosis({ id: docSnap.id, ...data });
         } else {
-          setError('Không tìm thấy kết quả chẩn đoán');
+          setError('Không tìm thấy kết quả chẩn đoán.');
         }
-      } catch (error) {
-        console.error('Error:', error);
-        setError('Có lỗi xảy ra khi tải dữ liệu');
+      } catch (err) {
+        console.error('Lỗi khi tải chi tiết chẩn đoán:', err);
+        setError('Có lỗi xảy ra khi tải dữ liệu.');
       } finally {
         setLoading(false);
       }
     };
 
-    fetchDiagnosis();
+    if (id && user) {
+      fetchDiagnosis();
+    } else {
+      setLoading(false); // Nếu không có id hoặc user, không cần loading
+    }
   }, [id, user]);
 
   if (loading) {
@@ -102,30 +120,30 @@ export default function DiagnosisDetail() {
               
               <Typography variant="body1" paragraph>
                 <strong>Thời gian:</strong>{' '}
-                {new Date(diagnosis.timestamp.toDate()).toLocaleString()}
+                {diagnosis.timestamp && diagnosis.timestamp.toDate ? new Date(diagnosis.timestamp.toDate()).toLocaleString('vi-VN') : (diagnosis.timestamp ? new Date(diagnosis.timestamp).toLocaleString('vi-VN') : 'N/A')}
               </Typography>
 
               <Typography variant="body1" paragraph>
-                <strong>Bệnh:</strong> {diagnosis.result.disease}
+                <strong>Bệnh:</strong> {diagnosis.diseaseName || (diagnosis.result && diagnosis.result.disease) || 'N/A'}
               </Typography>
 
               <Typography variant="body1" paragraph>
                 <strong>Độ chính xác:</strong>{' '}
-                {(diagnosis.result.confidence * 100).toFixed(2)}%
+                {typeof diagnosis.confidence === 'number' ? (diagnosis.confidence * 100).toFixed(2) : (diagnosis.result && typeof diagnosis.result.confidence === 'number' ? (diagnosis.result.confidence * 100).toFixed(2) : '0.00')}%
               </Typography>
 
               <Typography variant="h6" gutterBottom sx={{ mt: 3 }}>
                 Hướng dẫn điều trị
               </Typography>
               <Typography variant="body1" paragraph>
-                {diagnosis.result.treatment}
+                {diagnosis.treatment || diagnosis.recommendation || (diagnosis.result && diagnosis.result.treatment) || 'Chưa có thông tin'}
               </Typography>
 
               <Typography variant="h6" gutterBottom sx={{ mt: 3 }}>
                 Biện pháp phòng ngừa
               </Typography>
               <Typography variant="body1" paragraph>
-                {diagnosis.result.prevention}
+                {diagnosis.prevention || (diagnosis.result && diagnosis.result.prevention) || 'Chưa có thông tin'}
               </Typography>
             </Paper>
           </Grid>

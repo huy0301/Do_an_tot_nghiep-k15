@@ -3,24 +3,22 @@ import 'package:get/get.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart'; // For date formatting in UI if needed
 import '../../controllers/prediction_history_controller.dart';
-// import '../../model/prediction_history.dart'; // Unused import, ensuring it's removed or commented
-import '../../widgets/prediction_history_card.dart'; // Assuming you have or will create this
+// import '../../model/prediction_history.dart'; // Unused import, model is used via controller
+import '../../widgets/prediction_history_card.dart'; 
 
 class PredictionHistoryScreen extends StatelessWidget {
   final PredictionHistoryController controller = Get.find<PredictionHistoryController>();
   final TextEditingController _searchController = TextEditingController();
 
-  // Removed 'const' from constructor because 'controller' is initialized with a non-constant value (Get.find()).
   PredictionHistoryScreen({super.key});
 
   void _showFilterDialog(BuildContext context) {
-    // Có thể mở rộng dialog này để thêm các bộ lọc khác (ví dụ: theo tên bệnh)
     showDateRangePicker(
       context: context,
-      firstDate: DateTime(2020), // Giới hạn ngày bắt đầu có thể chọn
-      lastDate: DateTime.now(),  // Giới hạn ngày kết thúc có thể chọn
+      firstDate: DateTime(2020),
+      lastDate: DateTime.now(),
       initialDateRange: controller.selectedDateRange.value,
-      locale: const Locale('vi', 'VN'), // Tiếng Việt
+      locale: const Locale('vi', 'VN'),
       helpText: 'CHỌN KHOẢNG NGÀY',
       cancelText: 'HỦY',
       confirmText: 'CHỌN',
@@ -28,7 +26,7 @@ class PredictionHistoryScreen extends StatelessWidget {
         return Theme(
           data: ThemeData.light().copyWith(
             colorScheme: const ColorScheme.light(
-              primary: Colors.green, // Màu chính của DatePicker
+              primary: Colors.green,
               onPrimary: Colors.white,
               surface: Colors.white,
               onSurface: Colors.black,
@@ -40,16 +38,27 @@ class PredictionHistoryScreen extends StatelessWidget {
       },
     ).then((pickedRange) {
       if (pickedRange != null) {
-        controller.setDateRange(pickedRange);
+        // Gán trực tiếp vào Rx variable của controller
+        controller.selectedDateRange.value = pickedRange;
       }
     });
   }
 
+  // Hàm mới để xóa tất cả bộ lọc
+  void _clearAllFilters(){
+    _searchController.clear(); // Xóa text trong TextField
+    controller.searchQuery.value = ''; // Reset searchQuery trong controller
+    controller.selectedDateRange.value = null; // Reset dateRange trong controller
+    // applyFiltersAndSearch() sẽ tự động được gọi bởi listeners trong controller
+     Get.snackbar("Thông báo", "Đã xóa bộ lọc.", snackPosition: SnackPosition.BOTTOM);
+  }
+
   @override
   Widget build(BuildContext context) {
-    // Initialize search text field if controller has a query (e.g. after screen rotation)
     if (_searchController.text != controller.searchQuery.value) {
       _searchController.text = controller.searchQuery.value;
+       // Di chuyển con trỏ về cuối text sau khi set
+      _searchController.selection = TextSelection.fromPosition(TextPosition(offset: _searchController.text.length));
     }
     return Scaffold(
       appBar: AppBar(
@@ -62,23 +71,20 @@ class PredictionHistoryScreen extends StatelessWidget {
         backgroundColor: Colors.white,
         foregroundColor: Colors.black,
         actions: [
-          // Nút Lọc
           IconButton(
             icon: const Icon(Icons.filter_list, color: Colors.blueAccent),
             tooltip: 'Lọc theo ngày',
             onPressed: () => _showFilterDialog(context),
           ),
-          // Nút Xóa Bộ lọc (chỉ hiển thị nếu có bộ lọc đang áp dụng)
           Obx(() => 
             (controller.selectedDateRange.value != null || controller.searchQuery.value.isNotEmpty)
             ? IconButton(
                 icon: const Icon(Icons.filter_alt_off_outlined, color: Colors.orangeAccent),
                 tooltip: 'Xóa bộ lọc',
-                onPressed: () => controller.clearFilters(),
+                onPressed: _clearAllFilters, // Gọi hàm mới
               )
             : const SizedBox.shrink()
           ),
-          // Nút Xuất PDF
           Obx(() => 
             controller.filteredPredictionHistory.isEmpty
             ? const SizedBox.shrink()
@@ -102,13 +108,12 @@ class PredictionHistoryScreen extends StatelessWidget {
       ),
       body: Column(
         children: [
-          // Thanh tìm kiếm
           Padding(
             padding: const EdgeInsets.all(12.0),
             child: TextField(
               controller: _searchController,
               decoration: InputDecoration(
-                hintText: 'Tìm kiếm theo tên bệnh, khuyến nghị...',
+                hintText: 'Tìm kiếm theo tên bệnh...',
                 hintStyle: GoogleFonts.poppins(fontSize: 14),
                 prefixIcon: const Icon(Icons.search, size: 20),
                 suffixIcon: Obx(() => controller.searchQuery.value.isNotEmpty
@@ -116,7 +121,7 @@ class PredictionHistoryScreen extends StatelessWidget {
                         icon: const Icon(Icons.clear, size: 20),
                         onPressed: () {
                           _searchController.clear();
-                          controller.updateSearchQuery('');
+                          controller.searchQuery.value = ''; // Gán trực tiếp
                         },
                       )
                     : const SizedBox.shrink()),
@@ -131,11 +136,10 @@ class PredictionHistoryScreen extends StatelessWidget {
                 contentPadding: const EdgeInsets.symmetric(vertical: 10.0, horizontal: 15.0),
               ),
               onChanged: (value) {
-                controller.updateSearchQuery(value);
+                controller.searchQuery.value = value; // Gán trực tiếp
               },
             ),
           ),
-          // Hiển thị thông tin bộ lọc đang áp dụng
           Obx(() {
             if (controller.selectedDateRange.value == null) return const SizedBox.shrink();
             final start = DateFormat('dd/MM/yy', 'vi_VN').format(controller.selectedDateRange.value!.start);
@@ -148,16 +152,14 @@ class PredictionHistoryScreen extends StatelessWidget {
                 backgroundColor: Colors.blueAccent.withOpacity(0.8),
                 deleteIcon: const Icon(Icons.close, size: 16, color: Colors.white),
                 onDeleted: () {
-                  controller.setDateRange(null); // Xóa bộ lọc ngày
+                  controller.selectedDateRange.value = null; // Gán trực tiếp
                 },
               ),
             );
           }),
-
           Expanded(
             child: Obx(() {
-              if (controller.isLoading.value && controller.filteredPredictionHistory.isEmpty && controller.predictionHistory.isEmpty) {
-                 // Chỉ hiện loading khi khởi tạo và chưa có gì cả (kể cả full list)
+              if (controller.isLoading.value && controller.predictionHistory.isEmpty) {
                 return const Center(child: CircularProgressIndicator());
               }
               if (controller.filteredPredictionHistory.isEmpty) {

@@ -73,12 +73,27 @@ class PredictionHistoryCard extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 10),
-            if (prediction.recommendation.isNotEmpty)
-              Text(
-                "Recommendation: ${prediction.recommendation}",
-                style: GoogleFonts.poppins(fontSize: 13, color: Colors.black87),
-                maxLines: 3,
-                overflow: TextOverflow.ellipsis,
+            // Hiển thị Điều trị nếu có
+            if (prediction.treatment != null && prediction.treatment!.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 4.0),
+                child: Text(
+                  "Điều trị: ${prediction.treatment}",
+                  style: GoogleFonts.poppins(fontSize: 13, color: Colors.black87),
+                  maxLines: 3,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            // Hiển thị Phòng ngừa nếu có
+            if (prediction.prevention != null && prediction.prevention!.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 4.0),
+                child: Text(
+                  "Phòng ngừa: ${prediction.prevention}",
+                  style: GoogleFonts.poppins(fontSize: 13, color: Colors.black87),
+                  maxLines: 3,
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
             const SizedBox(height: 8),
             Align(
