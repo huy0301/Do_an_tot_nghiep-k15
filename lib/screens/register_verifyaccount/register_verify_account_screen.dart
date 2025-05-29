@@ -127,7 +127,7 @@ class RegisterVerifyAccountScreen extends StatelessWidget {
                   children: [
                     Center(
                       child: Text(
-                        'Copyright @AgroMind 2025',
+                        'Đồ án tốt nghiệp 2025',
                         style: GoogleFonts.poppins(color: Colors.white70, fontSize: 14),
                       ),
                     ),
