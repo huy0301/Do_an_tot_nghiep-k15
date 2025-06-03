@@ -6,7 +6,7 @@ import '../controllers/HealthSummaryController/HealthSummaryController.dart';
 import '../l10n/app_localizations.dart';
 
 class HealthSummary extends StatelessWidget {
-  final HealthSummaryController controller = Get.put(HealthSummaryController());
+  final HealthSummaryController controller = Get.find<HealthSummaryController>();
 
   @override
   Widget build(BuildContext context) {
@@ -45,11 +45,20 @@ class HealthSummary extends StatelessWidget {
                   children: [
                     Expanded(child: _buildHealthCard("${controller.totalPlantsTracked.value}", localizations.totalPlantsTracked, Colors.green[900]!)),
                     const SizedBox(width: 8),
-                    Expanded(child: _buildHealthCard("${controller.healthyPlants.value}", localizations.numberOfHealthyPlant, Colors.green)),
+                    Expanded(child: _buildHealthCard("${controller.healthyPlants.value}", "Số cây khỏe mạnh", Colors.green, onTap: () {
+                      Get.snackbar("Thông báo", "Chuyển đến danh sách cây khỏe mạnh (chức năng đang phát triển)");
+                      // TODO: Navigate to healthy plants list screen
+                    })),
                     const SizedBox(width: 8),
-                    Expanded(child: _buildHealthCard("${controller.riskyPlants.value}", localizations.numberOfRiskyPlant, Colors.orange)),
+                    Expanded(child: _buildHealthCard("${controller.riskyPlants.value}", "Số cây có nguy cơ", Colors.orange, onTap: () {
+                      Get.snackbar("Thông báo", "Chuyển đến danh sách cây có nguy cơ (chức năng đang phát triển)");
+                      // TODO: Navigate to risky plants list screen
+                    })),
                     const SizedBox(width: 8),
-                    Expanded(child: _buildHealthCard("${controller.diseasedPlants.value}", localizations.numberOfDiseasedPlant, Colors.redAccent)),
+                    Expanded(child: _buildHealthCard("${controller.diseasedPlants.value}", "Số cây bị bệnh", Colors.redAccent, onTap: () {
+                      Get.snackbar("Thông báo", "Chuyển đến danh sách cây bị bệnh (chức năng đang phát triển)");
+                      // TODO: Navigate to diseased plants list screen
+                    })),
                   ],
                 )),
               ],
@@ -60,40 +69,44 @@ class HealthSummary extends StatelessWidget {
     );
   }
 
-  Widget _buildHealthCard(String value, String label, Color color) {
-    return Container(
-      padding: EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: color,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black26,
-            blurRadius: 6,
-            offset: Offset(0, 3),
-          ),
-        ],
-      ),
-      child: Column(
-        children: [
-          Text(
-            value,
-            style: GoogleFonts.poppins(
-              fontSize: 15,
-              fontWeight: FontWeight.bold,
-              color: Colors.white,
+  Widget _buildHealthCard(String value, String label, Color color, {VoidCallback? onTap}) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: color,
+          borderRadius: BorderRadius.circular(12),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black26,
+              blurRadius: 6,
+              offset: Offset(0, 3),
             ),
-          ),
-          const SizedBox(height: 5),
-          Text(
-            label,
-            textAlign: TextAlign.center,
-            style: GoogleFonts.poppins(
-              fontSize: 10,
-              color: Colors.white70,
+          ],
+        ),
+        child: Column(
+          children: [
+            Text(
+              value,
+              style: GoogleFonts.poppins(
+                fontSize: 15,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+              ),
             ),
-          ),
-        ],
+            const SizedBox(height: 5),
+            Text(
+              label,
+              textAlign: TextAlign.center,
+              style: GoogleFonts.poppins(
+                fontSize: 10,
+                color: Colors.white70,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

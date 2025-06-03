@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Box, Typography, Grid, Paper } from '@mui/material';
+import { Box, Typography, Grid, Paper, CircularProgress } from '@mui/material';
 import MainLayout from '../../components/Layout/MainLayout';
 import { db, auth } from '../../services/firebase';
 import { collection, query, orderBy, getDocs } from 'firebase/firestore';
 import { useAuthState } from 'react-firebase-hooks/auth';
+import { useRouter } from 'next/router';
 import { parseISO } from 'date-fns';
 import {
   LineChart,
@@ -61,18 +62,39 @@ const transformDashboardData = (doc) => {
 };
 
 export default function Dashboard() {
-  const [user] = useAuthState(auth);
+  const [user, loadingAuth, errorAuth] = useAuthState(auth);
+  const router = useRouter();
   const [diagnosisData, setDiagnosisData] = useState([]);
-  const [loading, setLoading] = useState(true);
+  // Single loading state for the page: true until auth is checked and data (if any) is fetched.
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
+    if (loadingAuth) {
+      setIsLoading(true); // Auth state is being checked, so page is loading.
+      return;
+    }
+
+    if (errorAuth) {
+      console.error("Authentication error:", errorAuth);
+      router.push('/auth'); // Redirect on auth error.
+      return;
+    }
+
+    if (!user) {
+      router.push('/auth'); // No user, redirect to login.
+      return;
+    }
+
+    if (!user.emailVerified) {
+      alert('Vui lòng xác minh email của bạn để truy cập trang này. Bạn sẽ được chuyển hướng đến trang đăng nhập.');
+      router.push('/auth'); // Email not verified, redirect.
+      return;
+    }
+
+    // At this point, user is authenticated and email is verified.
+    // Proceed to fetch dashboard data.
     const fetchData = async () => {
-      if (!user) {
-        setLoading(false);
-        setDiagnosisData([]);
-        return;
-      }
-      setLoading(true);
+      // setIsLoading(true); // isLoading should already be true if we came from loadingAuth, or it's the first run after auth checks.
       try {
         const diagnosisQuery = query(collection(db, 'users', user.uid, 'diagnosis'), orderBy('timestamp', 'desc'));
         const esp32camQuery = query(collection(db, 'users', user.uid, 'esp32cam'), orderBy('timestamp', 'desc'));
@@ -91,16 +113,31 @@ export default function Dashboard() {
         setDiagnosisData(combinedData);
       } catch (error) {
         console.error('Error fetching dashboard data:', error);
-        setDiagnosisData([]);
+        setDiagnosisData([]); // Clear data on error
       } finally {
-        setLoading(false);
+        setIsLoading(false); // Finished fetching data (or error occurred).
       }
     };
 
     fetchData();
-  }, [user]);
 
-  // Process data for charts
+  }, [user, loadingAuth, errorAuth, router]); // Dependencies for the effect
+  
+  // Display a loading spinner if isLoading is true
+  if (isLoading) {
+    return (
+      // Pass user to MainLayout so it can potentially display user info later
+      <MainLayout user={user}> 
+        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: 'calc(100vh - 128px)', textAlign: 'center' }}>
+          <CircularProgress />
+          <Typography sx={{ml: 2}}>Đang tải dữ liệu trang Dashboard...</Typography>
+        </Box>
+      </MainLayout>
+    );
+  }
+  
+  // If all checks passed and not loading, render the dashboard content.
+  // Ensure diagnosisData processing happens only when not loading and data is available.
   const accuracyData = diagnosisData.map(item => {
     const confidence = (item.result && typeof item.result.confidence === 'number')
       ? item.result.confidence
@@ -129,7 +166,8 @@ export default function Dashboard() {
   }));
 
   return (
-    <MainLayout>
+    // Pass user to MainLayout so it can display user info
+    <MainLayout user={user}> 
       <Box sx={{ mt: 4 }}>
         <Typography variant="h4" component="h1" gutterBottom>
           Dashboard

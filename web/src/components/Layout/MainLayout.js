@@ -95,6 +95,11 @@ const MainLayout = ({ children }) => {
       open={Boolean(userMenuAnchor)}
       onClose={handleUserMenuClose}
     >
+      {user && (
+        <MenuItem disabled sx={{ opacity: '1 !important' }}>
+          <Typography variant="caption">{user.displayName || user.email}</Typography>
+        </MenuItem>
+      )}
       <MenuItem onClick={handleLogout}>Đăng xuất</MenuItem>
     </Menu>
   );

@@ -4,6 +4,7 @@ import 'package:get/get.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
 import '../../controllers/auth_controller/auth_controller.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 
 class ProfileScreen extends StatefulWidget {
   @override
@@ -17,7 +18,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
   final TextEditingController locationController = TextEditingController();
   String email = "";
   File? _selectedImage;
-  bool _isEditing = false; // ✅ Toggle edit mode
+  String? _currentProfileImageUrl;
+  bool _isEditing = false;
 
   @override
   void initState() {
@@ -26,18 +28,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   /// **Load user details from Firestore**
-  void loadUserData() async {
-    // Ưu tiên lấy email trực tiếp từ FirebaseAuth
+  Future<void> loadUserData() async {
     final currentUserEmail = authController.user.value?.email;
-
-    var userData = await authController.getUserDetails(); // Vẫn lấy các thông tin khác từ Firestore
-    if (mounted) { // Kiểm tra widget còn mounted không trước khi gọi setState
+    var userData = await authController.getUserDetails();
+    if (mounted) {
       setState(() {
-        // Sử dụng email từ FirebaseAuth nếu có, nếu không thì thử từ userData
-        email = currentUserEmail ?? userData?['email'] ?? "N/A"; 
+        email = currentUserEmail ?? userData?['email'] ?? "N/A";
         firstNameController.text = userData?['firstName'] ?? "";
         lastNameController.text = userData?['lastName'] ?? "";
         locationController.text = userData?['location'] ?? "";
+        _currentProfileImageUrl = userData?['profileImageUrl'];
       });
     }
   }
@@ -45,7 +45,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   /// **Pick Profile Image**
   Future<void> pickImage() async {
     final pickedFile =
-    await ImagePicker().pickImage(source: ImageSource.gallery);
+        await ImagePicker().pickImage(source: ImageSource.gallery, imageQuality: 70);
     if (pickedFile != null) {
       setState(() {
         _selectedImage = File(pickedFile.path);
@@ -61,21 +61,24 @@ class _ProfileScreenState extends State<ProfileScreen> {
       location: locationController.text,
       imageFile: _selectedImage,
     );
-    setState(() {
-      _isEditing = false; // ✅ After saving, disable edit mode
-    });
-    Get.snackbar("Success", "Profile updated successfully!");
+    await loadUserData();
+    if (mounted) {
+      setState(() {
+        _isEditing = false;
+        _selectedImage = null;
+      });
+    }
   }
 
   void onClose() {
-    Navigator.of(context).pop(); // ✅ Closes the drawer
+    Navigator.of(context).pop();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      drawer: CustomDrawer(onClose: onClose), // ✅ Custom Drawer Added
-      extendBodyBehindAppBar: true, // ✅ Extend body behind AppBar for a better UI
+      drawer: CustomDrawer(onClose: onClose),
+      extendBodyBehindAppBar: true,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
@@ -87,51 +90,47 @@ class _ProfileScreenState extends State<ProfileScreen> {
       ),
       body: Stack(
         children: [
-          // ✅ Background Image
           Positioned.fill(
             child: Image.asset(
-              "assets/images/plantdiagnosis_background.png", // 🌿 Use Plant Diagnosis background
+              "assets/images/plantdiagnosis_background.png",
               fit: BoxFit.cover,
             ),
           ),
-
-          // ✅ Profile Content
           Center(
             child: SingleChildScrollView(
               padding: EdgeInsets.symmetric(horizontal: 20, vertical: 60),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  SizedBox(height: 10), // ✅ Spacing after title
-
-                  // 🌟 Profile Picture with Floating Action Button
+                  SizedBox(height: 10),
                   Stack(
                     children: [
                       CircleAvatar(
                         radius: 60,
+                        backgroundColor: Colors.grey[300],
                         backgroundImage: _selectedImage != null
-                            ? FileImage(_selectedImage!)
-                            : AssetImage("assets/images/profile_placeholder.png") as ImageProvider,
-                        child: _selectedImage == null
+                            ? FileImage(_selectedImage!) as ImageProvider
+                            : (_currentProfileImageUrl != null && _currentProfileImageUrl!.isNotEmpty
+                                ? CachedNetworkImageProvider(_currentProfileImageUrl!)
+                                : AssetImage("assets/images/profile_placeholder.png") as ImageProvider),
+                        child: (_selectedImage == null && (_currentProfileImageUrl == null || _currentProfileImageUrl!.isEmpty))
                             ? Icon(Icons.person, size: 50, color: Colors.white70)
                             : null,
                       ),
-                      Positioned(
-                        bottom: 5,
-                        right: 5,
-                        child: FloatingActionButton(
-                          mini: true,
-                          backgroundColor: Colors.green.shade700,
-                          onPressed: pickImage,
-                          child: Icon(Icons.camera_alt, color: Colors.white),
+                      if (_isEditing)
+                        Positioned(
+                          bottom: 5,
+                          right: 5,
+                          child: FloatingActionButton(
+                            mini: true,
+                            backgroundColor: Colors.green.shade700,
+                            onPressed: pickImage,
+                            child: Icon(Icons.camera_alt, color: Colors.white),
+                          ),
                         ),
-                      ),
                     ],
                   ),
-
-                  SizedBox(height: 20), // ✅ Space below profile image
-
-                  // 🌟 Email (Non-Editable)
+                  SizedBox(height: 20),
                   buildTextField(
                     label: "Email",
                     icon: Icons.email,
@@ -139,8 +138,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     isEditable: false,
                   ),
                   SizedBox(height: 10),
-
-                  // 🌟 First Name Field
                   buildTextField(
                     controller: firstNameController,
                     label: "First Name",
@@ -148,8 +145,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     isEditable: _isEditing,
                   ),
                   SizedBox(height: 10),
-
-                  // 🌟 Last Name Field
                   buildTextField(
                     controller: lastNameController,
                     label: "Last Name",
@@ -157,8 +152,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     isEditable: _isEditing,
                   ),
                   SizedBox(height: 10),
-
-                  // 🌟 Location Field
                   buildTextField(
                     controller: locationController,
                     label: "Location",
@@ -166,15 +159,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     isEditable: _isEditing,
                   ),
                   SizedBox(height: 20),
-
-                  // 🌟 Save or Edit Profile Button
                   ElevatedButton(
                     onPressed: () {
                       if (_isEditing) {
-                        updateProfile(); // ✅ Save if in editing mode
+                        updateProfile();
                       } else {
                         setState(() {
-                          _isEditing = true; // ✅ Enable edit mode
+                          _isEditing = true;
                         });
                       }
                     },
@@ -190,10 +181,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
                     ),
                   ),
-
                   SizedBox(height: 20),
-
-                  // ❌ Logout Button
                   ElevatedButton(
                     onPressed: () {
                       authController.logout();
@@ -229,7 +217,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }) {
     return TextField(
       controller: controller ?? TextEditingController(text: value),
-      readOnly: !isEditable, // ✅ Make non-editable when needed
+      readOnly: !isEditable,
       decoration: InputDecoration(
         labelText: label,
         prefixIcon: Icon(icon, color: Colors.green.shade800),

@@ -3,9 +3,11 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../controllers/ScanPlantController/ScanPlantController.dart';
+import '../controllers/HealthSummaryController/HealthSummaryController.dart';
 
 class ScanPlantSection extends StatelessWidget {
-  final ScanPlantController controller = Get.put(ScanPlantController());
+  final ScanPlantController scanController = Get.put(ScanPlantController());
+  final HealthSummaryController healthSummaryController = Get.find<HealthSummaryController>();
 
   @override
   Widget build(BuildContext context) {
@@ -47,10 +49,18 @@ class ScanPlantSection extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Expanded(child: _buildStatusCircle("${controller.plantHealthCount.value}", "Plant Health Check", Colors.orangeAccent.withOpacity(0.6))),
-              Expanded(child: _buildStatusCircle("${controller.recommendationCount.value}", "New Recommendation", Colors.redAccent.withOpacity(0.6))),
-              Expanded(child: _buildStatusCircle("${controller.waterReminderCount.value}", "Water Reminder", Colors.greenAccent.withOpacity(0.6))),
-              Expanded(child: _buildStatusCircle("${controller.aiReminderCount.value}", "AI Reminder", Colors.pinkAccent.withOpacity(0.6))),
+              Expanded(child: _buildStatusCircle("${healthSummaryController.riskyPlantsToday.value}", "Cây có nguy cơ", Colors.orangeAccent.withOpacity(0.8), onTap: () {
+                Get.snackbar("Thông báo", "Cây có nguy cơ hôm nay (chức năng đang phát triển)");
+              })),
+              Expanded(child: _buildStatusCircle("${healthSummaryController.diseasedPlantsToday.value}", "Cây bị bệnh", Colors.redAccent.withOpacity(0.8), onTap: () {
+                Get.snackbar("Thông báo", "Cây bị bệnh hôm nay (chức năng đang phát triển)");
+              })),
+              Expanded(child: _buildStatusCircle("${scanController.waterReminderCount.value}", "Nhắc nhở tưới", Colors.blueAccent.withOpacity(0.7), onTap: () {
+                Get.snackbar("Thông báo", "Xem các nhắc nhở tưới cây (chức năng đang phát triển)");
+              })),
+              Expanded(child: _buildStatusCircle("${healthSummaryController.healthyPlantsToday.value}", "Cây khỏe mạnh", Colors.greenAccent.withOpacity(0.7), onTap: () {
+                Get.snackbar("Thông báo", "Cây khỏe mạnh hôm nay (chức năng đang phát triển)");
+              })),
             ],
           )),
         ],
@@ -59,35 +69,39 @@ class ScanPlantSection extends StatelessWidget {
   }
 
   /// ✅ Status Circle with Dynamic Data
-  Widget _buildStatusCircle(String number, String label, Color color) {
-    return Column(
-      children: [
-        CircleAvatar(
-          radius: 20,
-          backgroundColor: color,
-          child: Text(
-            number,
-            style: GoogleFonts.poppins(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-              color: Colors.black87,
+  Widget _buildStatusCircle(String number, String label, Color color, {VoidCallback? onTap}) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(30),
+      child: Column(
+        children: [
+          CircleAvatar(
+            radius: 20,
+            backgroundColor: color,
+            child: Text(
+              number,
+              style: GoogleFonts.poppins(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: Colors.black87,
+              ),
             ),
           ),
-        ),
-        const SizedBox(height: 5),
-        SizedBox(
-          width: 70,
-          child: Text(
-          label,
-          textAlign: TextAlign.center,
-            softWrap: true,
-          style: GoogleFonts.poppins(
-            fontSize: 10,
-            color: Colors.black87,
+          const SizedBox(height: 5),
+          SizedBox(
+            width: 70,
+            child: Text(
+              label,
+              textAlign: TextAlign.center,
+              softWrap: true,
+              style: GoogleFonts.poppins(
+                fontSize: 10,
+                color: Colors.black87,
+              ),
             ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }

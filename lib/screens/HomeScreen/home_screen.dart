@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../controllers/home_controller/home_controller.dart';
+import '../../controllers/HealthSummaryController/HealthSummaryController.dart';
 import '../../widgets/scan_section.dart';
 import '../../widgets/weather_card.dart';
 import '../../widgets/task_section.dart';
@@ -9,7 +10,8 @@ import '../../widgets/recommendation_section.dart';
 import '../custom_drawer/custom_drawer.dart';
 
 class HomeScreen extends StatelessWidget {
-  final HomeController controller = Get.put(HomeController());
+  final HomeController homeController = Get.put(HomeController());
+  final HealthSummaryController healthSummaryController = Get.put(HealthSummaryController());
 
   @override
   Widget build(BuildContext context) {
@@ -39,7 +41,7 @@ class HomeScreen extends StatelessWidget {
                         alignment: Alignment.centerLeft,
                         child: GestureDetector(
                           onTap: () {
-                            controller.toggleDrawer();
+                            homeController.toggleDrawer();
                           },
                           child: Image.asset(
                             'assets/images/app_logo.png',
@@ -49,7 +51,7 @@ class HomeScreen extends StatelessWidget {
                       ),
                       Center(
                         child: Obx(() => Text(
-                          "Welcome, ${controller.userName.value}!", // ✅ Dynamically Display User's First Name
+                          "Welcome, ${homeController.userName.value}!", // ✅ Dynamically Display User's First Name
                           style: TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.bold,
@@ -86,9 +88,9 @@ class HomeScreen extends StatelessWidget {
           ),
 
           // ✅ Animated Drawer Overlay (Use Obx properly)
-          Obx(() => controller.isDrawerOpen.value
+          Obx(() => homeController.isDrawerOpen.value
               ? GestureDetector(
-            onTap: () => controller.toggleDrawer(),
+            onTap: () => homeController.toggleDrawer(),
             child: Container(
               color: Colors.black.withOpacity(0.5),
             ),
@@ -100,8 +102,8 @@ class HomeScreen extends StatelessWidget {
             return AnimatedPositioned(
               duration: Duration(milliseconds: 500),
               curve: Curves.easeOutBack,
-              left: controller.isDrawerOpen.value ? 0 : -270,
-              child: CustomDrawer(onClose: controller.toggleDrawer),
+              left: homeController.isDrawerOpen.value ? 0 : -270,
+              child: CustomDrawer(onClose: homeController.toggleDrawer),
             );
           }),
         ],

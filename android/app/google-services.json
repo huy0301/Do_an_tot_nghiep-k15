@@ -1,0 +1,55 @@
+{
+  "project_info": {
+    "project_number": "1017696428184",
+    "firebase_url": "https://apple-disease-20b0b-default-rtdb.asia-southeast1.firebasedatabase.app",
+    "project_id": "apple-disease-20b0b",
+    "storage_bucket": "apple-disease-20b0b.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1017696428184:android:67fe3bfa5f08485d3ef0ed",
+        "android_client_info": {
+          "package_name": "com.example.agromind"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "1017696428184-s01lmi0get5jjuaftr1or8dfs96311ie.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.agromind",
+            "certificate_hash": "13b210cb496221ae460c40bc08d4922f2c21b2d1"
+          }
+        },
+        {
+          "client_id": "1017696428184-7i3u8mlkic4gnt5qgu343h2e59qltdl7.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCZRueiu0eBLlcCx4Dvdxy2EwRAeVQO-Ac"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "1017696428184-7i3u8mlkic4gnt5qgu343h2e59qltdl7.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "1017696428184-32ekhbvla83hophr91b9b2mf7tfgphtk.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.agromind"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

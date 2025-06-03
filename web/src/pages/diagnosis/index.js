@@ -1,5 +1,5 @@
-import React, { useState, useRef } from 'react';
-import { Box, Typography, Paper, Grid, CircularProgress, List, ListItem, ListItemText, Divider, Button, Chip } from '@mui/material';
+import React, { useState, useRef, useEffect } from 'react';
+import { Box, Typography, Paper, Grid, CircularProgress, List, ListItem, ListItemText, Divider, Button, Chip, Avatar } from '@mui/material';
 import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
 import MainLayout from '../../components/Layout/MainLayout';
 import ImageUploader from '../../components/ImageUpload/ImageUploader';
@@ -32,25 +32,51 @@ export default function Diagnosis() {
   const [results, setResults] = useState([]);
   const imageRef = useRef(null);
 
+  // STEP 1.2: useEffect for cleanup
+  useEffect(() => {
+    // This function will be called when the component unmounts or before the effect runs again if results change.
+    return () => {
+      results.forEach(result => {
+        if (result.previewUrl) {
+          URL.revokeObjectURL(result.previewUrl);
+          // console.log('Revoked preview URL:', result.previewUrl);
+        }
+      });
+    };
+  }, [results]); // Dependency array: effect runs if the results array instance changes
+
   const handleImageUpload = async (files) => {
     if (!user) {
       router.push('/auth');
       return;
     }
 
+    // Revoke object URLs from previous batch of results *before* processing new ones.
+    // This is important if the user uploads a new batch while previous previews are still shown.
+    results.forEach(result => {
+      if (result.previewUrl) {
+        URL.revokeObjectURL(result.previewUrl);
+      }
+    });
+
     setLoading(true);
-    setResults([]);
+    setResults([]); // Clear previous results from UI immediately
     const newResults = [];
 
     for (const file of files) {
       const img = new Image();
+      let localPreviewUrl = null; // Use a local variable for the current file's preview URL
+
       try {
-        img.src = URL.createObjectURL(file);
+        // STEP 1.1: Create and store previewUrl
+        localPreviewUrl = URL.createObjectURL(file);
+        img.src = localPreviewUrl;
+        
         await new Promise((resolve, reject) => {
           img.onload = resolve;
           img.onerror = (err) => {
-            console.error(`Error loading image ${file.name}:`, err);
-            reject(new Error(`Failed to load image ${file.name}`));
+            console.error(`Error loading image ${file.name} for preview:`, err);
+            reject(new Error(`Failed to load image ${file.name} for preview`));
           };
         });
 
@@ -60,121 +86,110 @@ export default function Diagnosis() {
           console.error(`Prediction failed or missing disease for ${file.name}`);
           newResults.push({ 
             fileName: file.name, 
-            error: 'Không thể lấy được kết quả dự đoán hoặc tên bệnh.' 
+            error: 'Không thể lấy được kết quả dự đoán hoặc tên bệnh.',
+            previewUrl: localPreviewUrl // Store preview URL even for errors
           });
-          continue;
+          continue; // Move to the next file
         }
 
         const predictedClassName = prediction.disease.replace(/\s+/g, '_');
         const storageRefPath = `diagnosis/${user.uid}/${predictedClassName}/${Date.now()}_${file.name}`;
         const storageRefVal = ref(storage, storageRefPath);
         await uploadBytes(storageRefVal, file);
-        const imageUrl = await getDownloadURL(storageRefVal);
+        const imageUrl = await getDownloadURL(storageRefVal); // Firebase Storage URL
 
-        // Prepare data according to the shared PredictionHistory model
         const diagnosisData = {
           userId: user.uid,
           imageUrl: imageUrl,
           storagePath: storageRefPath,
-          diseaseName: prediction.disease, // from mlService result
-          confidence: prediction.confidence, // from mlService result
-          timestamp: Timestamp.now(), // Firestore server timestamp
+          diseaseName: prediction.disease,
+          confidence: prediction.confidence,
+          timestamp: Timestamp.now(),
           platform: 'web',
-          recommendation: prediction.treatment || '', // Using treatment as recommendation
-          // originalFileName: file.name, // Not in shared model, omitting
+          recommendation: prediction.treatment || '',
+          prevention: prediction.prevention || '', // Keep prevention for now
         };
 
-        // Save to the correct user-specific sub-collection
         await addDoc(collection(db, 'users', user.uid, 'diagnosis'), diagnosisData);
 
         newResults.push({ 
           fileName: file.name, 
           ...prediction, 
-          imageUrl, 
+          imageUrl: imageUrl,       // Firebase Storage URL (for PDF later)
+          previewUrl: localPreviewUrl, // Local blob URL for immediate UI display
           storagePath: storageRefPath,
           timestamp: new Date()
         });
-        URL.revokeObjectURL(img.src);
+        // No revocation here, will be handled by useEffect cleanup
 
       } catch (error) {
         console.error(`Error processing file ${file.name}:`, error);
         newResults.push({ 
           fileName: file.name, 
-          error: error.message || 'Có lỗi xảy ra khi xử lý ảnh này' 
+          error: error.message || 'Có lỗi xảy ra khi xử lý ảnh này', 
+          previewUrl: localPreviewUrl // Store preview URL even for errors, if created
         });
-        if (img && img.src && img.src.startsWith('blob:')) {
-            URL.revokeObjectURL(img.src);
-        }
       }
     } 
-
     setResults(newResults);
     setLoading(false);
   };
 
+  // Bước 2: Thêm lại logic tải ảnh cho PDF, nhưng CHƯA vẽ ảnh
   const exportDiagnosisToPdf = async (resultsData) => {
-    if (!user || resultsData.length === 0) return;
+    if (!user || resultsData.length === 0) {
+      alert("Không có dữ liệu để xuất hoặc người dùng chưa đăng nhập.");
+      return;
+    }
     
     const doc = new jsPDF();
-    let fontToUse = 'Helvetica'; // Default fallback
+    let fontToUse = 'Helvetica';
     const FONT_NAME_CUSTOM = 'NotoSansCustom';
 
     try {
-      // Load Regular font
       const fontRegularUrl = '/fonts/NotoSans-Regular.ttf'; 
       const fontRegularResponse = await fetch(fontRegularUrl);
       if (!fontRegularResponse.ok) throw new Error(`Failed to fetch regular font: ${fontRegularResponse.statusText}`);
       const fontRegularBuffer = await fontRegularResponse.arrayBuffer();
       doc.addFileToVFS('NotoSans-Regular.ttf', arrayBufferToBase64(fontRegularBuffer));
       doc.addFont('NotoSans-Regular.ttf', FONT_NAME_CUSTOM, 'normal');
-
-      // Load Bold font
       const fontBoldUrl = '/fonts/NotoSans-Bold.ttf'; 
       const fontBoldResponse = await fetch(fontBoldUrl);
       if (!fontBoldResponse.ok) throw new Error(`Failed to fetch bold font: ${fontBoldResponse.statusText}`);
       const fontBoldBuffer = await fontBoldResponse.arrayBuffer();
       doc.addFileToVFS('NotoSans-Bold.ttf', arrayBufferToBase64(fontBoldBuffer));
       doc.addFont('NotoSans-Bold.ttf', FONT_NAME_CUSTOM, 'bold');
-      
       fontToUse = FONT_NAME_CUSTOM;
-      console.log("Custom NotoSans font loaded for PDF.");
     } catch (e) {
-      console.error("Error loading custom NotoSans fonts for PDF, falling back to Helvetica:", e);
+      console.error("Lỗi tải font cho PDF:", e);
     }
-    
     doc.setFont(fontToUse);
 
-    // 1. Title and User Info
     doc.setFontSize(18);
     doc.setFont(fontToUse, 'bold');
     doc.text('Báo cáo Kết quả Chẩn đoán Bệnh', 14, 22);
-    
     doc.setFontSize(10);
     doc.setFont(fontToUse, 'normal');
     doc.setTextColor(80, 80, 80);
     doc.text(`Người dùng: ${user.displayName || user.email || 'N/A'}`, 14, 30);
     doc.text(`Ngày xuất: ${new Date().toLocaleDateString('vi-VN')}`, 14, 35);
 
-    // 2. Summary Section
     let currentY = 45;
     doc.setFontSize(14);
     doc.setFont(fontToUse, 'bold');
-    doc.setTextColor(0, 0, 0);
-    doc.text('Tổng hợp kết quả:', 14, currentY);
-    currentY += 10;
-
+    doc.setTextColor(0,0,0);
+    doc.text('Tổng hợp kết quả:', 14, currentY);    
+    currentY +=10;
     const diseaseCounts = {};
     let healthyLeavesCount = 0;
     resultsData.forEach(res => {
       if (res.error) return;
-      // IMPORTANT: Adjust 'healthy' or 'khỏe mạnh' if your model uses different class names
       if (res.disease && (res.disease.toLowerCase() === 'healthy' || res.disease.toLowerCase() === 'khỏe mạnh')) {
         healthyLeavesCount++;
       } else if (res.disease) {
         diseaseCounts[res.disease] = (diseaseCounts[res.disease] || 0) + 1;
       }
     });
-
     const summaryTableBody = [];
     for (const disease in diseaseCounts) {
       summaryTableBody.push([disease, diseaseCounts[disease]]);
@@ -187,85 +202,134 @@ export default function Diagnosis() {
     } else if (summaryTableBody.length === 0) {
         summaryTableBody.push(['Không có dữ liệu chẩn đoán hợp lệ để tổng hợp.', '']);
     }
-    
     autoTable(doc, {
-      startY: currentY,
-      head: [['Loại bệnh / Tình trạng', 'Số lượng']],
-      body: summaryTableBody,
-      theme: 'grid',
-      styles: { 
-        font: fontToUse, 
-        fontSize: 10, 
-        fontStyle: 'normal', 
-        cellPadding: 2,
-        valign: 'middle'
-      },
-      headStyles: { 
-        font: fontToUse, 
-        fontStyle: 'bold', 
-        fillColor: [76, 175, 80],
-        textColor: [255, 255, 255],
-        fontSize: 11,
-        halign: 'center',
-        valign: 'middle'
-      },
-      didDrawPage: function (data) {
-        currentY = data.cursor.y;
-      }
+        startY: currentY,
+        head: [['Loại bệnh / Tình trạng', 'Số lượng']],
+        body: summaryTableBody,
+        theme: 'grid',
+        styles: { font: fontToUse, fontSize: 10, fontStyle: 'normal', cellPadding: 2, valign: 'middle' },
+        headStyles: { font: fontToUse, fontStyle: 'bold', fillColor: [76, 175, 80], textColor: [255,255,255], fontSize: 11, halign: 'center', valign: 'middle' },
+        didDrawPage: function (data) { currentY = data.cursor.y; }
     });
     currentY += 15;
 
-    // 3. Detailed Results Section
     doc.setFontSize(14);
     doc.setFont(fontToUse, 'bold');
     doc.text('Chi tiết kết quả từng ảnh:', 14, currentY);
     currentY += 10;
 
-    const detailedTableBody = resultsData.map(res => {
-      if (res.error) {
-        return [res.fileName || 'N/A', `Lỗi: ${res.error}`, '', '', ''];
+    // === BƯỚC 3: THÊM LẠI didDrawCell ĐỂ VẼ ẢNH ===
+    console.log("Bước 3: Đang tải trước ảnh cho bảng PDF...");
+    const imageElementsMap = {};
+    const imagePromises = resultsData.map(res => {
+      if (res.imageUrl && !res.error) {
+        return new Promise((resolve) => {
+          const img = new Image();
+          img.crossOrigin = 'Anonymous'; // Quan trọng để tránh lỗi CORS khi vẽ ảnh lên canvas
+          img.onload = () => {
+            console.log(`Ảnh đã tải cho PDF: ${res.fileName}`);
+            resolve({ fileName: res.fileName, imageElement: img, success: true });
+          };
+          img.onerror = (err) => {
+            console.error(`Lỗi tải ảnh PDF cho ${res.fileName}:`, err);
+            resolve({ fileName: res.fileName, error: 'Lỗi tải ảnh cho PDF', success: false });
+          };
+          img.src = res.imageUrl; // Sử dụng imageUrl từ Firebase Storage
+        });
       }
-      const timestampStr = res.timestamp && typeof res.timestamp.toLocaleString === 'function' ? 
-                           res.timestamp.toLocaleString('vi-VN', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) :
-                           (res.timestamp ? new Date(res.timestamp).toLocaleString('vi-VN', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : 'N/A');
-      return [
-        timestampStr,
-        res.disease || 'N/A',
-        res.confidence !== undefined ? `${(res.confidence * 100).toFixed(2)}%` : 'N/A',
-        res.treatment || 'N/A',
-        res.prevention || 'N/A',
-      ];
+      // Giải quyết ngay cho các mục không có imageUrl hoặc đã có lỗi xử lý trước đó
+      return Promise.resolve({ fileName: res.fileName, error: res.error || 'Không có ảnh URL', success: false });
+    });
+
+    const loadedImageResults = await Promise.allSettled(imagePromises);
+    loadedImageResults.forEach(promiseResult => {
+      if (promiseResult.status === 'fulfilled') {
+        const value = promiseResult.value;
+        if (value.success) {
+          imageElementsMap[value.fileName] = value.imageElement;
+        } else {
+          imageElementsMap[value.fileName] = value.error || 'Lỗi không xác định khi tải ảnh';
+        }
+      }
+    });
+    console.log("Hoàn tất tải trước ảnh cho PDF.", imageElementsMap);
+    // === KẾT THÚC PHẦN THÊM LẠI LOGIC TẢI ẢNH ===
+
+    // Tạo nội dung cho bảng chi tiết
+    const diagnosisTableColumn = ["STT", "Tên ảnh", "Bệnh", "Độ chính xác (%)", "Điều trị", "Ảnh"];
+    const diagnosisTableRows = [];
+
+    resultsData.forEach((res, index) => {
+      const diseaseName = res.disease || 'N/A';
+      const confidence = typeof res.confidence === 'number' ? (res.confidence * 100).toFixed(2) : 'N/A';
+      const treatment = res.treatment || res.recommendation || 'N/A';
+
+      diagnosisTableRows.push([
+        index + 1,
+        res.fileName,
+        diseaseName,
+        confidence,
+        treatment,
+        '', // Pass an empty string here for the image column
+      ]);
     });
 
     autoTable(doc, {
       startY: currentY,
-      head: [['Ngày giờ', 'Bệnh', 'Độ chính xác (%)', 'Điều trị', 'Phòng ngừa']],
-      body: detailedTableBody,
-      theme: 'striped',
-      styles: { 
-        font: fontToUse, 
-        fontSize: 9,
-        fontStyle: 'normal', 
-        cellPadding: 2, 
-        valign: 'middle'
-      },
-      headStyles: { 
-        font: fontToUse, 
-        fontStyle: 'bold', 
-        fillColor: [63, 81, 181],
-        textColor: [255,255,255],
-        fontSize: 10,
-        halign: 'center',
-        valign: 'middle'
-      },
+      head: [diagnosisTableColumn],
+      body: diagnosisTableRows,
+      theme: 'grid',
+      styles: { font: fontToUse, fontSize: 8, fontStyle: 'normal', cellPadding: 2, valign: 'middle', rowHeight: 38 },
+      headStyles: { font: fontToUse, fontStyle: 'bold', fillColor: [33, 150, 243], textColor: [255,255,255], fontSize: 9, halign: 'center', valign: 'middle', rowHeight: 15 },
       columnStyles: {
-        0: { cellWidth: 38, halign: 'left' },
-        1: { cellWidth: 35, halign: 'left' },
-        2: { cellWidth: 22, halign: 'center' },
-        3: { cellWidth: 45, halign: 'left' },
-        4: { cellWidth: 45, halign: 'left' }
+        0: { cellWidth: 27 }, 
+        1: { cellWidth: 25 }, 
+        2: { cellWidth: 30 }, 
+        3: { cellWidth: 20 }, 
+        4: { cellWidth: 40 },
+        5: { cellWidth: 40, minCellHeight: 38 }  // Đảm bảo ô ảnh đủ cao
       },
-      alternateRowStyles: { fillColor: [240, 240, 240] },
+      didDrawCell: (data) => {
+        if (data.section === 'body' && data.column.index === 5) { 
+          const currentRowData = resultsData[data.row.index];
+          if (currentRowData && currentRowData.fileName) {
+            const imgElement = imageElementsMap[currentRowData.fileName];
+
+            if (imgElement instanceof HTMLImageElement) {
+              const img = imgElement;
+              const fixedImgSize = 36; // Kích thước ảnh cố định (points)
+
+              let scaledWidth = img.width;
+              let scaledHeight = img.height;
+              const aspectRatio = scaledWidth / scaledHeight;
+
+              if (aspectRatio > 1) { // Ảnh rộng hơn cao
+                  scaledWidth = fixedImgSize;
+                  scaledHeight = fixedImgSize / aspectRatio;
+              } else { // Ảnh cao hơn rộng hoặc vuông
+                  scaledHeight = fixedImgSize;
+                  scaledWidth = fixedImgSize * aspectRatio;
+              }
+                                
+              const x = data.cell.x + (data.cell.width - scaledWidth) / 2;
+              const y = data.cell.y + (data.cell.height - scaledHeight) / 2;
+
+              try {
+                doc.addImage(img, 'JPEG', x, y, scaledWidth, scaledHeight);
+              } catch (e) {
+                console.error("Lỗi khi vẽ ảnh vào PDF (diagnosis):", e);
+                doc.setFontSize(6);
+                doc.setTextColor(255, 0, 0);
+                doc.text("Lỗi vẽ ảnh", data.cell.x + data.cell.padding('left'), data.cell.y + data.cell.padding('top') + 3);
+              }
+            } else {
+              doc.setFontSize(6);
+              doc.setTextColor(150, 150, 150);
+              doc.text(typeof imgElement === 'string' ? imgElement : "Không có ảnh", data.cell.x + data.cell.padding('left'), data.cell.y + data.cell.padding('top') + 3);
+            }
+          }
+        }
+      },
       didDrawPage: function(data) {
         const pageCount = doc.internal.getNumberOfPages();
         doc.setFontSize(8);
@@ -275,6 +339,7 @@ export default function Diagnosis() {
     });
 
     doc.save(`BaoCao_ChanDoan_${user.uid}_${Date.now()}.pdf`);
+    console.log("Đã lưu PDF Chẩn đoán.");
   };
 
   return (
@@ -311,7 +376,7 @@ export default function Diagnosis() {
                 </Button>
               )}
 
-              {!loading && results.length === 0 && !loading && ( // Ensure message shows only when not loading and no results
+              {!loading && results.length === 0 && (
                  <Typography variant="body1" color="textSecondary" sx={{ textAlign: 'center', mt: 4}}>
                   Tải lên ảnh hoặc thư mục để bắt đầu chẩn đoán.
                   Hệ thống sẽ phân tích và hiển thị kết quả tại đây.
@@ -326,7 +391,24 @@ export default function Diagnosis() {
                   <List dense>
                     {results.map((res, index) => (
                       <React.Fragment key={index}>
-                        <ListItem alignItems="flex-start" sx={{py: 1.5, backgroundColor: index % 2 ? '#f9f9f9' : 'transparent', borderRadius: 1}}>
+                        <ListItem 
+                            alignItems="flex-start" 
+                            sx={{
+                                py: 1.5, 
+                                backgroundColor: index % 2 ? '#f9f9f9' : 'transparent', 
+                                borderRadius: 1,
+                                display: 'flex', 
+                                gap: 2 
+                            }}
+                        >
+                          {res.previewUrl && (
+                            <Avatar 
+                                src={res.previewUrl} 
+                                alt={`Xem trước ${res.fileName}`} 
+                                variant="rounded" 
+                                sx={{ width: 80, height: 80, mr: 1.5 }} 
+                            />
+                          )}
                           <ListItemText
                             primary={
                               <Typography variant="subtitle1" sx={{ fontWeight: 'medium' }}>

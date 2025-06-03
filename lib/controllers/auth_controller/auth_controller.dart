@@ -2,10 +2,13 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:get/get.dart';
 import 'dart:io';
+import 'package:firebase_storage/firebase_storage.dart';
+import 'package:flutter/material.dart';
 
 class AuthController extends GetxController {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final FirebaseStorage _storage = FirebaseStorage.instance;
 
   var user = Rxn<User>(); // ✅ Track logged-in user
 
@@ -36,18 +39,39 @@ class AuthController extends GetxController {
     required String location,
     File? imageFile,
   }) async {
-    if (user.value == null) return;
+    if (user.value == null) {
+      Get.snackbar("Error", "User not logged in.");
+      return;
+    }
+    String userId = user.value!.uid;
+    Get.dialog(Center(child: CircularProgressIndicator()), barrierDismissible: false);
 
     try {
-      await _firestore.collection("users").doc(user.value!.uid).update({
+      String? imageUrl;
+      if (imageFile != null) {
+        final ref = _storage.ref().child('profile_images').child(userId + '.jpg');
+        await ref.putFile(imageFile);
+        imageUrl = await ref.getDownloadURL();
+      }
+
+      Map<String, dynamic> dataToUpdate = {
         "firstName": firstName,
         "lastName": lastName,
         "location": location,
-      });
+      };
 
-      Get.snackbar("Success", "Profile updated successfully!");
+      if (imageUrl != null) {
+        dataToUpdate['profileImageUrl'] = imageUrl;
+      }
+
+      await _firestore.collection("users").doc(userId).set(dataToUpdate, SetOptions(merge: true));
+      
+      Get.back();
+      Get.snackbar("Thành công", "Hồ sơ đã được cập nhật.");
     } catch (e) {
-      Get.snackbar("Error", "Failed to update profile.");
+      Get.back();
+      Get.snackbar("Lỗi", "Không thể cập nhật hồ sơ: ${e.toString()}");
+      print("Update profile error: $e");
     }
   }
 

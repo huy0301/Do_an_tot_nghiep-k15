@@ -185,43 +185,31 @@ export default function History() {
   const handleExportPDF = async () => {
     if (!user) return;
     const doc = new jsPDF();
-
-    let fontToUse = 'Helvetica'; // Default fallback font
+    let fontToUse = 'Helvetica';
     const FONT_NAME_CUSTOM = 'NotoSansCustom';
 
+    // Tải font (giữ nguyên logic hiện tại của bạn)
     try {
-      // Load Regular font
       const fontRegularUrl = '/fonts/NotoSans-Regular.ttf'; 
       const fontRegularResponse = await fetch(fontRegularUrl);
-      if (!fontRegularResponse.ok) {
-        throw new Error(`Failed to fetch regular font: ${fontRegularResponse.statusText}`);
-      }
+      if (!fontRegularResponse.ok) throw new Error(`Failed to fetch regular font: ${fontRegularResponse.statusText}`);
       const fontRegularBuffer = await fontRegularResponse.arrayBuffer();
-      const base64FontRegular = arrayBufferToBase64(fontRegularBuffer);
-      doc.addFileToVFS('NotoSans-Regular.ttf', base64FontRegular);
+      doc.addFileToVFS('NotoSans-Regular.ttf', arrayBufferToBase64(fontRegularBuffer));
       doc.addFont('NotoSans-Regular.ttf', FONT_NAME_CUSTOM, 'normal');
-      // console.log("Custom font 'NotoSans-Regular' (normal) loaded."); // Optional log
-
-      // Load Bold font
       const fontBoldUrl = '/fonts/NotoSans-Bold.ttf'; 
       const fontBoldResponse = await fetch(fontBoldUrl);
-      if (!fontBoldResponse.ok) {
-        throw new Error(`Failed to fetch bold font: ${fontBoldResponse.statusText}`);
-      }
+      if (!fontBoldResponse.ok) throw new Error(`Failed to fetch bold font: ${fontBoldResponse.statusText}`);
       const fontBoldBuffer = await fontBoldResponse.arrayBuffer();
-      const base64FontBold = arrayBufferToBase64(fontBoldBuffer);
-      doc.addFileToVFS('NotoSans-Bold.ttf', base64FontBold);
+      doc.addFileToVFS('NotoSans-Bold.ttf', arrayBufferToBase64(fontBoldBuffer));
       doc.addFont('NotoSans-Bold.ttf', FONT_NAME_CUSTOM, 'bold');
-      // console.log("Custom font 'NotoSans-Bold' (bold) loaded."); // Optional log
-
       fontToUse = FONT_NAME_CUSTOM;
-      console.log("Font family '", FONT_NAME_CUSTOM, "' with normal and bold styles is now active.");
+      console.log("Font NotoSans đã được tải cho PDF Lịch sử.");
     } catch (e) {
-      console.error("Error loading custom fonts, falling back to Helvetica:", e);
-      // fontToUse will remain 'Helvetica'
+      console.error("Lỗi tải font NotoSans cho PDF Lịch sử, dùng Helvetica:", e);
     }
-    
-    doc.setFont(fontToUse); // Set the font family, jsPDF will pick normal/bold as needed
+    doc.setFont(fontToUse);
+
+    // Thông tin chung (giữ nguyên)
     doc.setFontSize(18);
     doc.text('Báo cáo Lịch sử Chẩn đoán', 14, 22);
     doc.setFontSize(11);
@@ -229,52 +217,184 @@ export default function History() {
     doc.text(`Người dùng: ${user.displayName || user.email || user.uid}`, 14, 30);
     doc.text(`Ngày xuất: ${new Date().toLocaleDateString('vi-VN')}`, 14, 36);
 
-    const tableColumn = ["Ngày giờ", "Nguồn", "Bệnh", "Độ chính xác (%)", "Điều trị", "Phòng ngừa"];
-    const tableRows = [];
+    // === THÊM BẢNG TỔNG HỢP KẾT QUẢ CHO LỊCH SỬ ===
+    let currentY = 45;
+    doc.setFontSize(14);
+    doc.setFont(fontToUse, 'bold');
+    doc.setTextColor(0,0,0);
+    doc.text('Tổng hợp kết quả lịch sử:', 14, currentY);
+    currentY +=10;
+    const diseaseCounts = {};
+    let healthyLeavesCount = 0;
     filteredHistory.forEach(item => {
-      // Ưu tiên sử dụng các trường đã được chuẩn hóa trong item.result bởi transformData
-      // nhưng vẫn có thể kiểm tra trực tiếp các trường gốc nếu cần như một phương án dự phòng an toàn hơn.
+      if (item.error) return; // Bỏ qua các mục lỗi
+      const diseaseName = (item.result && item.result.disease) || item.diseaseName || null;
+      if (diseaseName) {
+        if (diseaseName.toLowerCase() === 'healthy' || diseaseName.toLowerCase() === 'khỏe mạnh') {
+          healthyLeavesCount++;
+        } else {
+          diseaseCounts[diseaseName] = (diseaseCounts[diseaseName] || 0) + 1;
+        }
+      }
+    });
+    const summaryTableBody = [];
+    for (const disease in diseaseCounts) {
+      summaryTableBody.push([disease, diseaseCounts[disease]]);
+    }
+    if (healthyLeavesCount > 0) {
+      summaryTableBody.push(['Lá khỏe mạnh', healthyLeavesCount]);
+    }
+    if (summaryTableBody.length === 0 && filteredHistory.filter(r => !r.error).length > 0) {
+        summaryTableBody.push(['Không xác định được bệnh cụ thể từ kết quả lịch sử.', '']);
+    } else if (summaryTableBody.length === 0) {
+        summaryTableBody.push(['Không có dữ liệu lịch sử hợp lệ để tổng hợp.', '']);
+    }
+    autoTable(doc, {
+        startY: currentY,
+        head: [['Loại bệnh / Tình trạng', 'Số lượng']],
+        body: summaryTableBody,
+        theme: 'grid',
+        styles: { font: fontToUse, fontSize: 10, fontStyle: 'normal', cellPadding: 2, valign: 'middle' },
+        headStyles: { font: fontToUse, fontStyle: 'bold', fillColor: [22, 160, 133], textColor: [255,255,255], fontSize: 11, halign: 'center', valign: 'middle' },
+        didDrawPage: function (data) { currentY = data.cursor.y; }
+    });
+    currentY += 15; // Thêm khoảng trống trước bảng chi tiết
+    // === KẾT THÚC BẢNG TỔNG HỢP ===
+
+    // === BẮT ĐẦU LOGIC TẢI ẢNH CHO PDF LỊCH SỬ ===
+    console.log("Đang tải trước ảnh cho PDF Lịch sử...");
+    const imageElementsMap = {};
+    // Sử dụng filteredHistory vì đó là dữ liệu đang được hiển thị và sẽ được xuất
+    const imagePromises = filteredHistory.map(item => {
+      // Giả sử mỗi item trong filteredHistory có thuộc tính imageUrl
+      if (item.imageUrl && !item.error) { // Chỉ tải nếu có imageUrl và không phải là item lỗi từ fetch ban đầu
+        return new Promise((resolve) => {
+          const img = new Image();
+          img.crossOrigin = 'Anonymous';
+          img.onload = () => {
+            console.log(`Ảnh Lịch sử đã tải cho PDF: ${item.id || 'unknown_id'}`);
+            resolve({ itemId: item.id, imageElement: img, success: true });
+          };
+          img.onerror = (err) => {
+            console.error(`Lỗi tải ảnh PDF Lịch sử cho item ${item.id || 'unknown_id'}:`, err);
+            resolve({ itemId: item.id, error: 'Lỗi tải ảnh cho PDF', success: false });
+          };
+          img.src = item.imageUrl;
+        });
+      }
+      return Promise.resolve({ itemId: item.id, error: item.error || 'Không có ảnh URL', success: false });
+    });
+
+    const loadedImageResults = await Promise.allSettled(imagePromises);
+    loadedImageResults.forEach(promiseResult => {
+      if (promiseResult.status === 'fulfilled') {
+        const value = promiseResult.value;
+        if (value.success) {
+          imageElementsMap[value.itemId] = value.imageElement; // Dùng item.id làm key
+        } else {
+          imageElementsMap[value.itemId] = value.error || 'Lỗi không xác định khi tải ảnh';
+        }
+      }
+    });
+    console.log("Hoàn tất tải trước ảnh cho PDF Lịch sử.", imageElementsMap);
+    // === KẾT THÚC LOGIC TẢI ẢNH ===
+
+    // Cập nhật tiêu đề cột và nội dung bảng
+    const tableColumn = ["Ngày giờ", "Nguồn", "Bệnh", "Độ chính xác (%)", "Điều trị", "Ảnh"]; // Thêm cột Ảnh
+    const tableRows = [];
+
+    filteredHistory.forEach(item => {
       const disease = (item.result && item.result.disease) || item.diseaseName || 'N/A';
       const confidence = (item.result && typeof item.result.confidence === 'number') 
                          ? (item.result.confidence * 100).toFixed(2) 
                          : (typeof item.confidence === 'number' ? (item.confidence * 100).toFixed(2) : 'N/A');
       const treatment = (item.result && item.result.treatment) || item.treatment || item.recommendation || 'N/A';
-      const prevention = (item.result && item.result.prevention) || item.prevention || 'N/A';
+      // const imageContent = imageElementsMap[item.id]; // Lấy HTMLImageElement hoặc string lỗi
 
-       tableRows.push([
+      tableRows.push([
         item.timestamp ? item.timestamp.toLocaleString('vi-VN') : 'N/A',
         item.source || 'Không rõ',
         disease,
         confidence,
         treatment,
-        prevention,
+        '', // Pass an empty string here. The image will be drawn in didDrawCell.
       ]);
     });
+
+    // LOG KIỂM TRA tableRows ngay trước khi gọi autoTable
+    console.log("Dữ liệu tableRows sẽ được truyền vào autoTable (trước stringify):", tableRows);
+    // Dùng console.table để xem có cấu trúc hơn không, nhưng có thể không hiện rõ đối tượng Image
+    // console.table(tableRows);
+
     autoTable(doc, { 
       head: [tableColumn], 
       body: tableRows, 
-      startY: 45,
-      styles: { font: fontToUse, fontStyle: 'normal', fontSize: 7 },
-      headStyles: { 
-        font: fontToUse, 
-        fontStyle: 'bold',
-        fillColor: [22, 160, 133],
-        fontSize: 9
+      startY: currentY, // Bắt đầu bảng chi tiết sau bảng tổng hợp
+      styles: { font: fontToUse, fontStyle: 'normal', fontSize: 7, rowHeight: 38 }, // Đặt chiều cao dòng cố định
+      headStyles: { font: fontToUse, fontStyle: 'bold',fillColor: [22, 160, 133], fontSize: 9, rowHeight: 15 },
+      columnStyles: { 
+          0: { cellWidth: 27 }, 
+          1: { cellWidth: 25 }, 
+          2: { cellWidth: 30 }, 
+          3: { cellWidth: 20 }, 
+          4: { cellWidth: 40 }, 
+          5: { cellWidth: 40, minCellHeight: 38 } // Đảm bảo ô ảnh đủ cao
       },
-      columnStyles: {
-        0: { cellWidth: 27 },
-        1: { cellWidth: 25 },
-        2: { cellWidth: 30 },
-        3: { cellWidth: 20 },
-        4: { cellWidth: 40 },
-        5: { cellWidth: 40 }
+      didDrawCell: (data) => {
+        if (data.section === 'body' && data.column.index === 5) { 
+            const currentRowData = filteredHistory[data.row.index];
+            
+            if (currentRowData && currentRowData.id) {
+                const imgElement = imageElementsMap[currentRowData.id];
+
+                if (imgElement instanceof HTMLImageElement) {
+                    const img = imgElement;
+                    const fixedImgSize = 36; // Kích thước ảnh cố định (points)
+
+                    let scaledWidth = img.width;
+                    let scaledHeight = img.height;
+                    const aspectRatio = scaledWidth / scaledHeight;
+
+                    if (aspectRatio > 1) { // Ảnh rộng hơn cao
+                        scaledWidth = fixedImgSize;
+                        scaledHeight = fixedImgSize / aspectRatio;
+                    } else { // Ảnh cao hơn rộng hoặc vuông
+                        scaledHeight = fixedImgSize;
+                        scaledWidth = fixedImgSize * aspectRatio;
+                    }
+                                                          
+                    const x = data.cell.x + (data.cell.width - scaledWidth) / 2;
+                    const y = data.cell.y + (data.cell.height - scaledHeight) / 2;
+
+                    try {
+                        doc.addImage(img, 'JPEG', x, y, scaledWidth, scaledHeight);
+                    } catch (e) {
+                        console.error("   Lỗi khi thực sự vẽ ảnh vào ô PDF Lịch sử với addImage:", e);
+                        doc.setFontSize(6);
+                        doc.setTextColor(255, 0, 0);
+                        doc.text("Lỗi vẽ ảnh", data.cell.x + data.cell.padding('left'), data.cell.y + data.cell.padding('top') + 3);
+                    }
+                } else {
+                    doc.setFontSize(6);
+                    doc.setTextColor(150, 150, 150);
+                    doc.text(typeof imgElement === 'string' ? imgElement : "Ảnh lỗi/N/A", data.cell.x + data.cell.padding('left'), data.cell.y + data.cell.padding('top') + 3);
+                }
+            } 
+        }
       },
       alternateRowStyles: { fillColor: [240, 240, 240] },
       tableLineColor: [44, 62, 80],
       tableLineWidth: 0.2,
+      didDrawPage: function(data) {
+        const pageCount = doc.internal.getNumberOfPages();
+        doc.setFontSize(8);
+        doc.setTextColor(150, 150, 150);
+        doc.text('Trang ' + data.pageNumber + '/' + pageCount, data.settings.margin.left, doc.internal.pageSize.height - 10);
+      }
     });
 
-    doc.save(`bao_cao_chan_doan_${user.uid}_${Date.now()}.pdf`);
+    doc.save(`BaoCao_LichSu_${user.uid}_${Date.now()}.pdf`);
+    console.log("Đã lưu PDF Lịch sử.");
   };
 
   if (loading && !user) {
