@@ -65,7 +65,7 @@ class AuthController extends GetxController {
       }
 
       await _firestore.collection("users").doc(userId).set(dataToUpdate, SetOptions(merge: true));
-      
+
       Get.back();
       Get.snackbar("Thành công", "Hồ sơ đã được cập nhật.");
     } catch (e) {

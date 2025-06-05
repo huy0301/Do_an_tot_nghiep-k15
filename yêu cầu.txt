@@ -1,8 +1,0 @@
-xuất ra pdf , gửi cho chủ , tổng hợp kết quả. tên nông dân = tên tk .
-sơ đồ hóa , trực quan hóa sản phẩm , promt AI giới thiệu sản phẩm . lột tả hệ thống hoạt động ,
-đặt vấn đề tính cấp thiết
-công nghệ
-giải pháp đưa ra
-kết quả 
-đánh giá
-hướng ứng dụng , phát triển 

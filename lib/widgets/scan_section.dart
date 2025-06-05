@@ -74,33 +74,33 @@ class ScanPlantSection extends StatelessWidget {
       onTap: onTap,
       borderRadius: BorderRadius.circular(30),
       child: Column(
-        children: [
-          CircleAvatar(
-            radius: 20,
-            backgroundColor: color,
-            child: Text(
-              number,
-              style: GoogleFonts.poppins(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-                color: Colors.black87,
-              ),
+      children: [
+        CircleAvatar(
+          radius: 20,
+          backgroundColor: color,
+          child: Text(
+            number,
+            style: GoogleFonts.poppins(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: Colors.black87,
             ),
           ),
-          const SizedBox(height: 5),
-          SizedBox(
-            width: 70,
-            child: Text(
-              label,
-              textAlign: TextAlign.center,
-              softWrap: true,
-              style: GoogleFonts.poppins(
-                fontSize: 10,
-                color: Colors.black87,
-              ),
+        ),
+        const SizedBox(height: 5),
+        SizedBox(
+          width: 70,
+          child: Text(
+          label,
+          textAlign: TextAlign.center,
+            softWrap: true,
+          style: GoogleFonts.poppins(
+            fontSize: 10,
+            color: Colors.black87,
             ),
           ),
-        ],
+        ),
+      ],
       ),
     );
   }

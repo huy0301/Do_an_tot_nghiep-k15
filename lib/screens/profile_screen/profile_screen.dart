@@ -33,7 +33,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     var userData = await authController.getUserDetails();
     if (mounted) {
       setState(() {
-        email = currentUserEmail ?? userData?['email'] ?? "N/A";
+        email = currentUserEmail ?? userData?['email'] ?? "N/A"; 
         firstNameController.text = userData?['firstName'] ?? "";
         lastNameController.text = userData?['lastName'] ?? "";
         locationController.text = userData?['location'] ?? "";
@@ -63,10 +63,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
     await loadUserData();
     if (mounted) {
-      setState(() {
+    setState(() {
         _isEditing = false;
         _selectedImage = null;
-      });
+    });
     }
   }
 
@@ -118,16 +118,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             : null,
                       ),
                       if (_isEditing)
-                        Positioned(
-                          bottom: 5,
-                          right: 5,
-                          child: FloatingActionButton(
-                            mini: true,
-                            backgroundColor: Colors.green.shade700,
-                            onPressed: pickImage,
-                            child: Icon(Icons.camera_alt, color: Colors.white),
-                          ),
+                      Positioned(
+                        bottom: 5,
+                        right: 5,
+                        child: FloatingActionButton(
+                          mini: true,
+                          backgroundColor: Colors.green.shade700,
+                          onPressed: pickImage,
+                          child: Icon(Icons.camera_alt, color: Colors.white),
                         ),
+                      ),
                     ],
                   ),
                   SizedBox(height: 20),

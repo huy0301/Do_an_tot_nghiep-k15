@@ -74,38 +74,38 @@ class HealthSummary extends StatelessWidget {
       onTap: onTap,
       borderRadius: BorderRadius.circular(12),
       child: Container(
-        padding: EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: color,
-          borderRadius: BorderRadius.circular(12),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black26,
-              blurRadius: 6,
-              offset: Offset(0, 3),
+      padding: EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black26,
+            blurRadius: 6,
+            offset: Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          Text(
+            value,
+            style: GoogleFonts.poppins(
+              fontSize: 15,
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
             ),
-          ],
-        ),
-        child: Column(
-          children: [
-            Text(
-              value,
-              style: GoogleFonts.poppins(
-                fontSize: 15,
-                fontWeight: FontWeight.bold,
-                color: Colors.white,
-              ),
+          ),
+          const SizedBox(height: 5),
+          Text(
+            label,
+            textAlign: TextAlign.center,
+            style: GoogleFonts.poppins(
+              fontSize: 10,
+              color: Colors.white70,
             ),
-            const SizedBox(height: 5),
-            Text(
-              label,
-              textAlign: TextAlign.center,
-              style: GoogleFonts.poppins(
-                fontSize: 10,
-                color: Colors.white70,
-              ),
-            ),
-          ],
+          ),
+        ],
         ),
       ),
     );
