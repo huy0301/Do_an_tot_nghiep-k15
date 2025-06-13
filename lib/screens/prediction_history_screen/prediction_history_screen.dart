@@ -46,10 +46,9 @@ class PredictionHistoryScreen extends StatelessWidget {
 
   // Hàm mới để xóa tất cả bộ lọc
   void _clearAllFilters(){
-    _searchController.clear(); // Xóa text trong TextField
-    controller.searchQuery.value = ''; // Reset searchQuery trong controller
-    controller.selectedDateRange.value = null; // Reset dateRange trong controller
-    // applyFiltersAndSearch() sẽ tự động được gọi bởi listeners trong controller
+    _searchController.clear();
+    controller.searchQuery.value = '';
+    controller.selectedDateRange.value = null;
      Get.snackbar("Thông báo", "Đã xóa bộ lọc.", snackPosition: SnackPosition.BOTTOM);
   }
 

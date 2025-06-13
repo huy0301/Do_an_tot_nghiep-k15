@@ -9,6 +9,7 @@ import 'package:path_provider/path_provider.dart'; // To get file paths
 import 'package:pdf/pdf.dart' as pdfLib; // Aliased to avoid conflict with material.Pdf class if any
 import 'package:pdf/widgets.dart' as pw; // PDF library widgets (aliased)
 import 'package:printing/printing.dart'; // Printing library
+import 'package:open_filex/open_filex.dart'; // For opening the saved PDF
 
 import '../model/prediction_history.dart';
 
@@ -32,7 +33,7 @@ class PredictionHistoryController extends GetxController {
   @override
   void onInit() {
     super.onInit();
-    // _loadFonts(); // Chỉ load font nếu vẫn dùng chức năng PDF của Flutter
+    _loadFonts(); // ✅ Tải font ngay khi controller khởi tạo
     if (_auth.currentUser != null) {
       getPredictionHistory();
     }
@@ -182,143 +183,183 @@ class PredictionHistoryController extends GetxController {
   }
 
   Future<void> generatePdfReport(List<PredictionHistory> historyEntries) async {
-    if (_regularFont == null || _boldFont == null) {
-      Get.snackbar("Lỗi PDF", "Font chữ chưa sẵn sàng để tạo PDF. Vui lòng thử lại.");
-      await _loadFonts(); 
-      if (_regularFont == null || _boldFont == null) return; 
+    if (historyEntries.isEmpty) {
+      Get.snackbar("Thông báo", "Không có dữ liệu để xuất báo cáo.");
+      return;
     }
 
-    final pdf = pw.Document();
+    Get.dialog(
+      const Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            CircularProgressIndicator(),
+            SizedBox(height: 16),
+            Text("Đang tạo báo cáo PDF..."),
+          ],
+        ),
+      ),
+      barrierDismissible: false,
+    );
 
-    final baseStyle = pw.TextStyle(font: _regularFont, fontSize: 10);
-    final titleStyle = pw.TextStyle(font: _boldFont, fontSize: 18);
-    final sectionTitleStyle = pw.TextStyle(font: _boldFont, fontSize: 14);
-    final headerTableStyle = pw.TextStyle(font: _boldFont, fontSize: 11, color: pdfLib.PdfColors.white);
-    // final boldTableCellStyle = pw.TextStyle(font: _boldFont, fontSize: 10);
+    try {
+      if (_regularFont == null || _boldFont == null) {
+        Get.back(); // Close loading dialog
+        Get.snackbar("Lỗi PDF", "Font chữ chưa được tải. Không thể tạo PDF.");
+        return;
+      }
 
-    String formatDate(DateTime dt) {
-      return DateFormat('dd/MM/yyyy, HH:mm', Get.locale?.languageCode ?? 'vi_VN').format(dt);
-    }
-    
-    String reportTitleSuffix = '';
-    if (selectedDateRange.value != null) {
-      final start = DateFormat('dd/MM/yyyy', Get.locale?.languageCode ?? 'vi_VN').format(selectedDateRange.value!.start);
-      final end = DateFormat('dd/MM/yyyy', Get.locale?.languageCode ?? 'vi_VN').format(selectedDateRange.value!.end);
-      reportTitleSuffix = '\n(Từ $start đến $end)';
-    }
+      final pdf = pw.Document();
 
-    Map<String, int> diseaseCounts = {};
-    if (historyEntries.isNotEmpty) {
+      final baseStyle = pw.TextStyle(font: _regularFont, fontSize: 10);
+      final titleStyle = pw.TextStyle(font: _boldFont, fontSize: 18);
+      final sectionTitleStyle = pw.TextStyle(font: _boldFont, fontSize: 14);
+      final headerTableStyle = pw.TextStyle(font: _boldFont, fontSize: 11, color: pdfLib.PdfColors.white);
+
+      String formatDate(DateTime dt) {
+        return DateFormat('dd/MM/yyyy, HH:mm', Get.locale?.languageCode ?? 'vi_VN').format(dt);
+      }
+      
+      String reportTitleSuffix = '';
+      if (selectedDateRange.value != null) {
+        final start = DateFormat('dd/MM/yyyy', Get.locale?.languageCode ?? 'vi_VN').format(selectedDateRange.value!.start);
+        final end = DateFormat('dd/MM/yyyy', Get.locale?.languageCode ?? 'vi_VN').format(selectedDateRange.value!.end);
+        reportTitleSuffix = '\n(Từ $start đến $end)';
+      }
+
+      Map<String, int> diseaseCounts = {};
       for (var entry in historyEntries) {
         diseaseCounts[entry.diseaseName] = (diseaseCounts[entry.diseaseName] ?? 0) + 1;
       }
-    }
 
-    pdf.addPage(
-      pw.MultiPage(
-        pageFormat: pdfLib.PdfPageFormat.a4,
-        theme: pw.ThemeData.withFont(
-          base: _regularFont!,
-          bold: _boldFont!,
-        ),
-        header: (pw.Context context) {
-          return pw.Container(
-            alignment: pw.Alignment.centerRight,
-            margin: const pw.EdgeInsets.only(bottom: 3.0 * pdfLib.PdfPageFormat.mm),
-            padding: const pw.EdgeInsets.only(bottom: 3.0 * pdfLib.PdfPageFormat.mm),
-            decoration: const pw.BoxDecoration(
-              border: pw.Border(bottom: pw.BorderSide(width: 0.5, color: pdfLib.PdfColors.grey)),
-            ),
-            child: pw.Text(
-              'Báo cáo Lịch sử Chẩn đoán',
-              style: pw.Theme.of(context).defaultTextStyle.copyWith(color: pdfLib.PdfColors.grey, font: _regularFont, fontSize: 9),
-            )
-          );
-        },
-        footer: (pw.Context context) { 
-          return pw.Container(
-            alignment: pw.Alignment.centerRight,
-            margin: const pw.EdgeInsets.only(top: 1.0 * pdfLib.PdfPageFormat.cm),
-            child: pw.Text(
-              'Trang ${context.pageNumber} của ${context.pagesCount}',
-              style: pw.Theme.of(context).defaultTextStyle.copyWith(color: pdfLib.PdfColors.grey, font: _regularFont, fontSize: 9),
-            ),
-          );
-        },
-        build: (pw.Context context) => <pw.Widget>[
-          pw.Header(
-            level: 0,
-            child: pw.Row(
-              mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-              crossAxisAlignment: pw.CrossAxisAlignment.start, 
-              children: <pw.Widget>[
-                pw.Expanded(child: pw.Text('Báo cáo Lịch sử Chẩn đoán Bệnh$reportTitleSuffix', style: titleStyle, maxLines: 3)),
-                pw.Column(
-                    crossAxisAlignment: pw.CrossAxisAlignment.end,
-                    children: [
-                       if (_auth.currentUser?.email != null) pw.Text('Người dùng: ${_auth.currentUser!.email}', style: baseStyle),
-                        pw.Text('Ngày xuất: ${DateFormat('dd/MM/yyyy HH:mm', Get.locale?.languageCode ?? 'vi_VN').format(DateTime.now())}', style: baseStyle),
-                    ]
-                )
-              ],
-            ),
+      pdf.addPage(
+        pw.MultiPage(
+          maxPages: 1000,
+          pageFormat: pdfLib.PdfPageFormat.a4,
+          theme: pw.ThemeData.withFont(
+            base: _regularFont!,
+            bold: _boldFont!,
           ),
-          pw.SizedBox(height: 15),
-
-          pw.Text('Tổng hợp kết quả:', style: sectionTitleStyle),
-          pw.SizedBox(height: 5),
-          diseaseCounts.isNotEmpty
-            ? pw.Table(
-                border: pw.TableBorder.all(color: pdfLib.PdfColors.grey400, width: 0.5),
-                children: [
-                  pw.TableRow(
-                    decoration: const pw.BoxDecoration(color: pdfLib.PdfColors.teal), // Changed color
-                    children: [
-                      pw.Padding(padding: const pw.EdgeInsets.all(5), child: pw.Text('Loại bệnh / Tình trạng', style: headerTableStyle)),
-                      pw.Padding(padding: const pw.EdgeInsets.all(5), child: pw.Text('Số lượng', style: headerTableStyle, textAlign: pw.TextAlign.center)),
-                    ],
-                  ),
-                  ...diseaseCounts.entries.map((entry) {
-                    return pw.TableRow(
-                      children: [
-                        pw.Padding(padding: const pw.EdgeInsets.all(4), child: pw.Text(entry.key, style: baseStyle)),
-                        pw.Padding(padding: const pw.EdgeInsets.all(4), child: pw.Text(entry.value.toString(), style: baseStyle.copyWith(font: _boldFont), textAlign: pw.TextAlign.center)),
-                      ],
-                    );
-                  }).toList(),
-                ],
+          header: (pw.Context context) {
+            return pw.Container(
+              alignment: pw.Alignment.centerRight,
+              margin: const pw.EdgeInsets.only(bottom: 3.0 * pdfLib.PdfPageFormat.mm),
+              padding: const pw.EdgeInsets.only(bottom: 3.0 * pdfLib.PdfPageFormat.mm),
+              decoration: const pw.BoxDecoration(
+                border: pw.Border(bottom: pw.BorderSide(width: 0.5, color: pdfLib.PdfColors.grey)),
+              ),
+              child: pw.Text(
+                'Báo cáo Lịch sử Chẩn đoán',
+                style: pw.Theme.of(context).defaultTextStyle.copyWith(color: pdfLib.PdfColors.grey, font: _regularFont, fontSize: 9),
               )
-            : pw.Padding(padding: const pw.EdgeInsets.symmetric(vertical: 8.0), child: pw.Text('Không có dữ liệu để tổng hợp.', style: baseStyle)),
-          pw.SizedBox(height: 15),
+            );
+          },
+          footer: (pw.Context context) { 
+            return pw.Container(
+              alignment: pw.Alignment.centerRight,
+              margin: const pw.EdgeInsets.only(top: 1.0 * pdfLib.PdfPageFormat.cm),
+              child: pw.Text(
+                'Trang ${context.pageNumber} của ${context.pagesCount}',
+                style: pw.Theme.of(context).defaultTextStyle.copyWith(color: pdfLib.PdfColors.grey, font: _regularFont, fontSize: 9),
+              ),
+            );
+          },
+          build: (pw.Context context) => <pw.Widget>[
+            pw.Header(
+              level: 0,
+              child: pw.Row(
+                mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                crossAxisAlignment: pw.CrossAxisAlignment.start, 
+                children: <pw.Widget>[
+                  pw.Expanded(child: pw.Text('Báo cáo Lịch sử Chẩn đoán Bệnh$reportTitleSuffix', style: titleStyle, maxLines: 3)),
+                  pw.Column(
+                      crossAxisAlignment: pw.CrossAxisAlignment.end,
+                      children: [
+                         if (_auth.currentUser?.email != null) pw.Text('Người dùng: ${_auth.currentUser!.email}', style: baseStyle),
+                          pw.Text('Ngày xuất: ${DateFormat('dd/MM/yyyy HH:mm', Get.locale?.languageCode ?? 'vi_VN').format(DateTime.now())}', style: baseStyle),
+                      ]
+                  )
+                ],
+              ),
+            ),
+            pw.SizedBox(height: 15),
 
-          pw.Text('Chi tiết kết quả từng ảnh:', style: sectionTitleStyle),
-          pw.SizedBox(height: 5),
-          pw.Table.fromTextArray(
-            border: pw.TableBorder.all(color: pdfLib.PdfColors.grey600, width: 0.5),
-            headerStyle: headerTableStyle,
-            headerDecoration: const pw.BoxDecoration(color: pdfLib.PdfColors.teal), // Changed color
-            cellStyle: baseStyle,
-            cellAlignment: pw.Alignment.centerLeft,
-            cellAlignments: { // Can specify alignment for each column
-              2: pw.Alignment.centerRight, // Confidence
-            },
-            headers: <String>['Ngày giờ', 'Bệnh', 'Độ chính xác (%)', 'Nguồn', 'Điều trị', 'Phòng ngừa'],
-            data: _getPdfTableData(historyEntries), // Use the helper function
-          ),
-        ],
-      )
-    );
+            pw.Text('Tổng hợp kết quả:', style: sectionTitleStyle),
+            pw.SizedBox(height: 5),
+            diseaseCounts.isNotEmpty
+              ? pw.Table(
+                  border: pw.TableBorder.all(color: pdfLib.PdfColors.grey400, width: 0.5),
+                  children: [
+                    pw.TableRow(
+                      decoration: const pw.BoxDecoration(color: pdfLib.PdfColors.teal),
+                      children: [
+                        pw.Padding(padding: const pw.EdgeInsets.all(5), child: pw.Text('Loại bệnh / Tình trạng', style: headerTableStyle)),
+                        pw.Padding(padding: const pw.EdgeInsets.all(5), child: pw.Text('Số lượng', style: headerTableStyle, textAlign: pw.TextAlign.center)),
+                      ],
+                    ),
+                    ...diseaseCounts.entries.map((entry) {
+                      return pw.TableRow(
+                        children: [
+                          pw.Padding(padding: const pw.EdgeInsets.all(4), child: pw.Text(entry.key, style: baseStyle)),
+                          pw.Padding(padding: const pw.EdgeInsets.all(4), child: pw.Text(entry.value.toString(), style: baseStyle.copyWith(font: _boldFont), textAlign: pw.TextAlign.center)),
+                        ],
+                      );
+                    }).toList(),
+                  ],
+                )
+              : pw.Padding(padding: const pw.EdgeInsets.symmetric(vertical: 8.0), child: pw.Text('Không có dữ liệu để tổng hợp.', style: baseStyle)),
+            pw.SizedBox(height: 15),
 
-    // Lưu hoặc chia sẻ PDF
-    try {
-      final output = await getTemporaryDirectory(); // Hoặc getApplicationDocumentsDirectory()
-      final file = File("${output.path}/lich_su_chan_doan_${DateFormat('yyyyMMdd_HHmmss').format(DateTime.now())}.pdf");
+            pw.Text('Chi tiết kết quả từng ảnh:', style: sectionTitleStyle),
+            pw.SizedBox(height: 5),
+            pw.Table.fromTextArray(
+              columnWidths: {
+                0: const pw.FlexColumnWidth(1.5),
+                1: const pw.FlexColumnWidth(2),
+                2: const pw.FlexColumnWidth(1.2),
+                3: const pw.FlexColumnWidth(0.8),
+                4: const pw.FlexColumnWidth(3),
+                5: const pw.FlexColumnWidth(3),
+              },
+              border: pw.TableBorder.all(color: pdfLib.PdfColors.grey600, width: 0.5),
+              headerStyle: headerTableStyle,
+              headerDecoration: const pw.BoxDecoration(color: pdfLib.PdfColors.teal),
+              cellStyle: baseStyle,
+              cellAlignment: pw.Alignment.centerLeft,
+              cellAlignments: {
+                2: pw.Alignment.centerRight,
+              },
+              headers: <String>['Ngày giờ', 'Bệnh', 'Độ chính xác (%)', 'Nguồn', 'Điều trị', 'Phòng ngừa'],
+              data: _getPdfTableData(historyEntries),
+            ),
+          ],
+        )
+      );
+
+      final output = await getTemporaryDirectory();
+      final timestamp = DateFormat('yyyyMMdd_HHmmss').format(DateTime.now());
+      final fileName = "lich_su_chan_doan_$timestamp.pdf";
+      final file = File("${output.path}/$fileName");
       await file.writeAsBytes(await pdf.save());
-      Get.snackbar("Thành công", "Đã lưu báo cáo PDF vào: ${file.path}", duration: Duration(seconds: 5));
-      // Tùy chọn: Mở file PDF hoặc cung cấp tùy chọn để chia sẻ
-      // await Printing.sharePdf(bytes: await pdf.save(), filename: file.path.split('/').last);
+
+      Get.back(); // Close loading dialog
+
+      Get.snackbar(
+        "Thành công",
+        "Đã lưu báo cáo PDF vào thư mục tạm.",
+        mainButton: TextButton(
+          onPressed: () {
+            OpenFilex.open(file.path);
+          },
+          child: const Text("MỞ FILE"),
+        ),
+        duration: const Duration(seconds: 8),
+      );
+
     } catch (e) {
-      Get.snackbar("Lỗi Lưu PDF", "Không thể lưu file PDF: ${e.toString()}");
+      Get.back(); // Close loading dialog
+      Get.snackbar("Lỗi", "Không thể tạo hoặc lưu file PDF: ${e.toString()}");
+      print("Error in generatePdfReport: $e");
     }
   }
 

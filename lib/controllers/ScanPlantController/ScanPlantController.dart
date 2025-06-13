@@ -34,20 +34,20 @@ class ScanPlantController extends GetxController {
         .snapshots()
         .listen((snapshot) {
       plantHealthCount.value = snapshot.docs.length;
-      recommendationCount.value = snapshot.docs.length; // ✅ Each scan is a recommendation
+      recommendationCount.value = snapshot.docs.length; //  Each scan is a recommendation
     });
 
-    // ✅ Count total number of plants in "My Garden" for Water Reminder
+    //  Count total number of plants in "My Garden" for Water Reminder
     firestore
         .collection("users")
         .doc(user.uid)
-        .collection("plants") // ✅ This collection stores the user's plants
+        .collection("plants") //  This collection stores the user's plants
         .snapshots()
         .listen((snapshot) {
-      waterReminderCount.value = snapshot.docs.length; // ✅ Set count to total plants
+      waterReminderCount.value = snapshot.docs.length; //  Set count to total plants
     });
 
-    // ✅ Listen for "AI Reminders"
+    //  Listen for "AI Reminders"
     firestore
         .collection("users")
         .doc(user.uid)

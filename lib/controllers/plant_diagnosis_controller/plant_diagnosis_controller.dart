@@ -155,15 +155,7 @@ class PlantDiagnosisController extends GetxController {
         }
         
         String storageFileName = DateTime.now().millisecondsSinceEpoch.toString() + ".jpg";
-        // Cấu trúc đường dẫn Storage: diagnosis/userID/DiseaseName/file_ảnh (hoặc esp32cam/userID/DiseaseName/file_ảnh)
-        // Tuy nhiên, Firebase Storage thường không tạo "thư mục" nếu không có file.
-        // Để nhất quán với yêu cầu lưu storagePath vào Firestore, chúng ta dùng cấu trúc này cho storagePath.
-        // Dù source là gì, thư mục gốc trong Storage sẽ là 'diagnosis_images' hoặc tên chung.
-        // Quyết định: Dùng cấu trúc users/{userId}/{diseaseName_sanitized}/fileName.jpg cho Storage.
-        // Điều này khác với cấu trúc collection Firestore.
-        // storagePathForFirestore sẽ là đường dẫn đầy đủ này.
-        // Để đơn giản, giữ cấu trúc storage hiện tại: diagnosis/userID/DiseaseName/file_ảnh
-        // Với yêu cầu mới, cấu trúc storage là: diagnosis/userID/DiseaseName/file_ảnh
+        // cấu trúc storage là: diagnosis/userID/DiseaseName/file_ảnh
 
         storagePathForFirestore = 'diagnosis/${user.uid}/$sanitizedDiseaseName/$storageFileName';
         
@@ -230,7 +222,7 @@ class PlantDiagnosisController extends GetxController {
         "contents": [
           {
             "parts": [
-              {"text": "Đâu là phương pháp điều trị tốt nhất cho bệnh $currentDiseaseName? Cung cấp các khuyến nghị bằng tiếng Việt."}
+              {"text": "Đâu là phương pháp điều trị tốt nhất cho bệnh $currentDiseaseName? Cung cấp các khuyến nghị bằng tiếng Việt, ngắn gọn ."}
             ]
           }
         ]
@@ -263,21 +255,21 @@ class PlantDiagnosisController extends GetxController {
       }
 
       String platformValue;
-      String targetCollectionPath; // Sẽ là 'users/{uid}/diagnosis' hoặc 'users/{uid}/esp32cam'
+      String targetCollectionPath; //  'users/{uid}/diagnosis'  'users/{uid}/esp32cam'
 
       // Xác định platform và collection dựa trên nguồn gốc
       switch (source) {
         case DiagnosisSource.flutterMobile:
-          platformValue = 'flutter'; // Đổi thành 'flutter' cho nhất quán
+          platformValue = 'flutter';
           targetCollectionPath = 'users/${user.uid}/diagnosis';
           break;
         case DiagnosisSource.esp32cam:
           platformValue = 'esp32cam';
-          targetCollectionPath = 'users/${user.uid}/esp32cam'; // Lưu vào collection riêng cho ESP32
+          targetCollectionPath = 'users/${user.uid}/esp32cam';
           break;
         default:
-          platformValue = 'unknown_flutter'; // Để phân biệt với unknown của web
-          targetCollectionPath = 'users/${user.uid}/diagnosis'; // Mặc định
+          platformValue = 'unknown_flutter';
+          targetCollectionPath = 'users/${user.uid}/diagnosis';
       }
 
       final diagnosisDataMap = {
@@ -288,17 +280,17 @@ class PlantDiagnosisController extends GetxController {
         'timestamp': FieldValue.serverTimestamp(), // Dùng server timestamp
         'platform': platformValue,
         'treatment': recommendation.value, // Lấy từ Gemini
-        'prevention': '', // Thêm trường prevention, để trống nếu không có
+        'prevention': '',
         'storagePath': storagePathValue,
       };
       
       // Lưu vào collection đã xác định
       await _firestore
           .collection(targetCollectionPath) 
-          .add(diagnosisDataMap); // Sử dụng Map trực tiếp
+          .add(diagnosisDataMap);
 
       Get.snackbar("Success", "Diagnosis saved successfully!");
-      _historyController.getPredictionHistory(); // Refresh history list
+      _historyController.getPredictionHistory();
     } catch (e) {
       print("❌ Firestore Save Error: $e");
       Get.snackbar("Error", "Failed to save diagnosis: ${e.toString()}");

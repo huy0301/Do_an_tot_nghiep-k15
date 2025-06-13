@@ -5,19 +5,17 @@
 #include <SPIFFS.h>
 #include "camera_pins.h"
 
-// WiFi credentials
-const char* ssid = "XUAN HUY";
-const char* password = "12345678";
+const char* ssid = "Esp_8266";
+const char* password = "0000000000";
 
-// Static IP configuration
-// Static IP configuration
-IPAddress local_IP(192, 168, 1, 184);
-IPAddress gateway(192, 168, 1, 1); 
-IPAddress subnet(255, 255, 255, 0);
 
-//IPAddress local_IP(172, 20, 10, 10);  // IP static cho ESP32 (trong dải mạng 172.20.10.0/28)
-//IPAddress gateway(172, 20, 10, 1);     // Gateway (router)
-//IPAddress subnet(255, 255, 255, 240);  // Subnet mask
+//IPAddress local_IP(192, 168, 1, 184);
+//IPAddress gateway(192, 168, 1, 1); 
+//IPAddress subnet(255, 255, 255, 0);
+
+IPAddress local_IP(172, 20, 10, 10);  
+IPAddress gateway(172, 20, 10, 1);     
+IPAddress subnet(255, 255, 255, 240);  
 
 // ESP32-CAM pins
 #define CAMERA_MODEL_AI_THINKER // Has PSRAM
@@ -82,7 +80,7 @@ void initCamera() {
   config.jpeg_quality = 12;
   config.fb_count = 1;
 
-  // if PSRAM IC present, init with UXGA resolution and higher JPEG quality
+  
   if (config.pixel_format == PIXFORMAT_JPEG) {
     if (psramFound()) {
       config.jpeg_quality = 8;
@@ -284,7 +282,7 @@ void sendFrameTask(void * parameter) {
       sendFrame();
     }
     // Nếu stream bị giật sau khi tăng chất lượng/độ phân giải,
-    // bạn có thể cần tăng delay ở đây, ví dụ: vTaskDelay(pdMS_TO_TICKS(150));
+
     vTaskDelay(pdMS_TO_TICKS(100)); // Giữ nguyên 10 FPS hiện tại để thử nghiệm
   }
 }

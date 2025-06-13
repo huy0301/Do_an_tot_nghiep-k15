@@ -1,49 +1,65 @@
 <!DOCTYPE html>
 <html lang="vi">
   <head>
+    <!-- Thẻ <base> chỉ định URL cơ sở cho tất cả các URL tương đối trong trang.
+         Giá trị $FLUTTER_BASE_HREF sẽ được thay thế bởi công cụ build của Flutter
+         để đảm bảo tài nguyên được tải đúng cách, bất kể ứng dụng được host ở đâu. -->
     <base href="$FLUTTER_BASE_HREF">
 
     <meta charset="UTF-8">
     <meta content="IE=Edge" http-equiv="X-UA-Compatible">
+    <!-- Mô tả ngắn gọn về trang web, hữu ích cho SEO. -->
     <meta name="description" content="A new Flutter project.">
 
-    <!-- iOS meta tags & icons -->
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black">
-    <meta name="apple-mobile-web-app-title" content="agromind">
-    <link rel="apple-touch-icon" href="icons/Icon-192.png">
+    <!-- Các thẻ meta dành riêng cho iOS để cải thiện trải nghiệm PWA (Progressive Web App) -->
+    <meta name="apple-mobile-web-app-capable" content="yes"> <!-- Cho phép chạy ở chế độ toàn màn hình. -->
+    <meta name="apple-mobile-web-app-status-bar-style" content="black"> <!-- Đặt màu thanh trạng thái. -->
+    <meta name="apple-mobile-web-app-title" content="agromind"> <!-- Tiêu đề khi thêm vào màn hình chính. -->
+    <link rel="apple-touch-icon" href="icons/Icon-192.png"> <!-- Icon ứng dụng trên iOS. -->
 
-    <!-- Favicon -->
+    <!-- Favicon là icon nhỏ hiển thị trên tab của trình duyệt. -->
     <link rel="icon" type="image/png" href="favicon.png"/>
 
     <title>AgroMind</title>
+    <!-- Liên kết đến tệp manifest, cần thiết cho PWA để định nghĩa các thông tin như tên, icon, màu sắc... -->
     <link rel="manifest" href="manifest.json">
 
     <script>
-      // The value below is injected by flutter build, do not touch.
+      // Biến này sẽ được Flutter build "tiêm" giá trị vào.
+      // Nó được dùng để quản lý phiên bản của Service Worker, giúp cập nhật ứng dụng nền.
       const serviceWorkerVersion = null;
     </script>
-    <!-- This script adds the flutter initialization JS code -->
+    <!-- Tải mã JavaScript khởi tạo của Flutter. "defer" đảm bảo script chỉ chạy sau khi HTML được phân tích xong. -->
     <script src="flutter.js" defer></script>
 
-    <!-- Firebase SDK -->
+    <!-- Tải các SDK của Firebase trực tiếp từ CDN của Google.
+         Cách này khác với việc quản lý qua npm trong các dự án JavaScript thuần túy.
+         Bao gồm các dịch vụ App, Authentication, Firestore và Storage. -->
     <script src="https://www.gstatic.com/firebasejs/9.x.x/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.x.x/firebase-auth.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.x.x/firebase-firestore.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.x.x/firebase-storage.js"></script>
   </head>
   <body>
+    <!-- Hiển thị thông báo nếu người dùng tắt JavaScript. -->
     <noscript>You need to enable JavaScript to run this app.</noscript>
+    <!-- Thẻ div này có thể là nơi ứng dụng React (Next.js) được mount vào,
+         cho thấy khả năng có sự kết hợp giữa Flutter và React. -->
     <div id="root"></div>
     <script>
+      // Chờ cho tất cả tài nguyên của trang (hình ảnh, script) được tải xong.
       window.addEventListener('load', function(ev) {
-        // Download main.dart.js
+        // Sử dụng loader của Flutter để tải "entrypoint" của ứng dụng, chính là tệp main.dart.js.
+        // Tệp này chứa mã Dart đã được biên dịch sang JavaScript.
         _flutter.loader.loadEntrypoint({
           serviceWorker: {
             serviceWorkerVersion: serviceWorkerVersion,
           },
+          // Callback này sẽ được gọi sau khi entrypoint được tải xong.
           onEntrypointLoaded: function(engineInitializer) {
+            // Khởi tạo engine Flutter Web.
             engineInitializer.initializeEngine().then(function(appRunner) {
+              // Chạy ứng dụng Flutter.
               appRunner.runApp();
             });
           }
